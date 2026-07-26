@@ -37,7 +37,12 @@ export interface CreateTaxRateInput {
   components?: TaxRateComponentInput[];
 }
 
-export type UpdateTaxRateInput = Partial<Omit<CreateTaxRateInput, 'outletId' | 'countryCode'>>;
+export type UpdateTaxRateInput = Partial<Omit<CreateTaxRateInput, 'outletId' | 'countryCode'>> & {
+  // Mirrors Item's own UpdateItemDto precedent — the backend's PATCH
+  // already supports toggling isActive directly (see UpdateTaxRateDto),
+  // matching the "Active" checkbox on this form's edit mode.
+  isActive?: boolean;
+};
 
 export interface TaxRatePreviewResult {
   lineSubtotal: string;

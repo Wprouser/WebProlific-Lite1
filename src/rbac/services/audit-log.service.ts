@@ -65,10 +65,28 @@ function inferPropertyId(entityType: string, entityId: string): string | undefin
   return entityType === 'Property' ? entityId : undefined;
 }
 
+// FR-04: PO/GRN lifecycle actions are named for activity-feed readability
+// ("Ahmed approved PO #1042"), not with an UPDATE_ prefix — but each one
+// does change tracked PurchaseOrder/GRN fields (status, approvedById,
+// etc.), so per FR-18's own rule ("regardless of whether the change
+// carries a monetary amount") they still need TransactionLog coverage.
+// Same allowlist mechanism as the existing DEACTIVATE_USER case below.
+const UPDATE_ACTION_OVERRIDES = new Set([
+  'DEACTIVATE_USER',
+  'SUBMIT_PURCHASE_ORDER',
+  'APPROVE_PURCHASE_ORDER',
+  'REJECT_PURCHASE_ORDER',
+  'SEND_PURCHASE_ORDER',
+  'CLOSE_PURCHASE_ORDER',
+  // Same reasoning — emailing a PO/GRN updates lastEmailedAt/lastEmailedTo.
+  'EMAIL_PURCHASE_ORDER',
+  'EMAIL_GRN',
+]);
+
 function inferOperation(action: string): Operation | undefined {
   if (action.startsWith('CREATE_') || action === 'INVITE_USER') return 'CREATE';
   if (action.startsWith('DELETE_')) return 'DELETE';
-  if (action.startsWith('UPDATE_') || action === 'DEACTIVATE_USER') return 'UPDATE';
+  if (action.startsWith('UPDATE_') || UPDATE_ACTION_OVERRIDES.has(action)) return 'UPDATE';
   // ADMIN_RESET_PASSWORD / ADMIN_RESET_2FA / SET_TWO_FACTOR_POLICY: these
   // do mutate a User/TwoFactorAuth row, but the sensitive fields involved
   // (password hash, TOTP secret) should never be diffed into a readable

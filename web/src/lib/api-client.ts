@@ -3,11 +3,11 @@ import { clearSession, getSession } from './auth-store';
 const API_BASE = '/api/v1';
 
 export class ApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
+  status: number;
+
+  constructor(status: number, message: string) {
     super(message);
+    this.status = status;
   }
 }
 
@@ -32,6 +32,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+async function requestBlob(path: string): Promise<Blob> {
+  const session = getSession();
+  const headers = new Headers();
+  if (session) headers.set('Authorization', `Bearer ${session.accessToken}`);
+
+  const response = await fetch(`${API_BASE}${path}`, { headers });
+
+  if (response.status === 401) {
+    clearSession();
+    window.location.assign('/login');
+    throw new ApiError(401, 'Session expired');
+  }
+  if (!response.ok) {
+    throw new ApiError(response.status, `Request failed (${response.status})`);
+  }
+  return response.blob();
 }
 
 async function requestForm<T>(path: string, method: string, formData: FormData): Promise<T> {
@@ -64,4 +82,5 @@ export const apiClient = {
     request<T>(path, { method: 'PATCH', body: body === undefined ? undefined : JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   postForm: <T>(path: string, formData: FormData) => requestForm<T>(path, 'POST', formData),
+  getBlob: (path: string) => requestBlob(path),
 };

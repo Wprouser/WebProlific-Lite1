@@ -351,16 +351,31 @@ model StockTransaction {
 ### Data Model
 ```prisma
 model Supplier {
-  id            String   @id @default(uuid())
-  outletId      String
-  name          String
-  contactPerson String?
-  phone         String?
-  email         String?
-  address       String?
-  paymentTerms  String?   // e.g. "NET_15", "NET_30", "COD"
-  leadTimeDays  Int?
-  isActive      Boolean  @default(true)
+  id                    String   @id @default(uuid())
+  outletId              String
+  supplierCode          String?  // short internal reference code (e.g. "SUP-001"), distinct from the internal UUID — for quick reference on printed POs/reports
+  name                  String   // legal/trade name
+  contactPerson         String?
+  phone                 String?
+  email                 String?
+  addressLine           String?
+  city                  String?
+  stateOrProvince       String?  // reference info only — see note below on why this doesn't drive automatic GST intra/inter-state logic
+  countryCode           String?  // e.g. "SA", "IN", "AE" — ISO 3166-1 alpha-2
+  postalCode            String?
+  preferredCurrency     String?  // FK-like reference to Currency.code (FR-16) — the currency this supplier typically invoices in; pre-fills PO/GRN currency when this supplier is selected, always overridable per transaction
+  taxRegistrationType   String?  // free-text/lookup label, e.g. "GSTIN" (India), "VAT Reg. No." (Saudi/UAE/EU-style), "TRN" (UAE), "NONE" — deliberately not a hardcoded enum, since registration naming varies by country
+  taxRegistrationNumber String?  // the actual registration number/ID string — validated only for non-empty format if provided, not checksum-validated against any specific country's rules (that would require per-country validation logic — out of scope for now)
+  paymentTerms          String?   // e.g. "NET_15", "NET_30", "COD"
+  leadTimeDays          Int?
+  bankAccountName       String?  // optional — for accounts-payable reference only; no payment processing happens in-app
+  bankAccountNumber     String?
+  bankIfscOrSwift       String?  // IFSC (India), SWIFT/BIC (international) — single free-text field, not split by country
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([outletId, isActive])
 }
 
 model SupplierPriceHistory {
@@ -368,12 +383,17 @@ model SupplierPriceHistory {
   supplierId String
   itemId     String
   price      Decimal  @db.Decimal(12,2)
+  currencyCode String  @default("SAR")  // the currency this specific price point was recorded in — since a supplier's preferredCurrency can change over time, or a one-off transaction can use a different currency, each history row snapshots its own currency rather than assuming the supplier's current preference retroactively
   recordedAt DateTime @default(now())
   source     String   // 'PO' | 'GRN' | 'MANUAL'
 
   @@index([supplierId, itemId, recordedAt])
 }
 ```
+
+**On `stateOrProvince` and GST:** this field is captured as **reference information only**, shown on the supplier's profile so the person creating a PO/GRN can see it at a glance and manually pick the correct GST tax rate variant (Intra-state vs. Inter-state, per FR-04's Tax Configuration). It deliberately does **not** drive automatic intra/inter-state tax determination — that would require the outlet's own state to also be captured and compared, plus jurisdiction logic, which remains an explicit, deliberate scope boundary (same reasoning as the Tax Configuration section). Capturing the supplier's state is still worthwhile even without automation — it's the single most useful piece of context for a human making that manual choice correctly.
+
+**On why `SupplierPriceHistory` now carries its own `currencyCode`:** without this, comparing price history across time (or across suppliers) would be misleading if a supplier's currency ever changed, or if a one-off purchase used a different currency than usual — each historical price point needs to stand on its own.
 
 ### API Endpoints
 | Method | Endpoint | Purpose |
@@ -387,14 +407,19 @@ model SupplierPriceHistory {
 | `GET` | `/suppliers/:id/performance` | On-time %, price consistency score |
 
 ### Business Logic
-- `SupplierPriceHistory` rows are auto-created (never manually) whenever a GRN (FR-04) is finalized — this is the data source for AI-09 (Supplier Price Intelligence).
+- `SupplierPriceHistory` rows are auto-created (never manually) whenever a GRN (FR-04) is finalized — this is the data source for AI-09 (Supplier Price Intelligence). Each row captures the currency actually used for that specific transaction, not assumed from the supplier's current `preferredCurrency`.
+- **Selecting a supplier on a PO or Direct GRN pre-fills the currency field from that supplier's `preferredCurrency`** (if set) — always editable per transaction, exactly like tax rate pre-fill from Item defaults; a supplier's usual currency is a convenience default, never a locked constraint.
 - Performance score formula (documented for whoever builds AI-09, but computed here as a simple baseline):
   `onTimeRate = COUNT(GRNs received on/before PO expectedDeliveryDate) / COUNT(total GRNs)`
 - `DELETE /suppliers/:id` → `409` if any `PurchaseOrder.status NOT IN [Closed, Cancelled, Rejected]` references it.
+- `taxRegistrationNumber` has no format/checksum validation beyond "non-empty if provided" — validating GSTIN checksums, VAT number formats, etc. per-country is explicitly out of scope; this is a free-text reference field, not a verified legal identifier.
 
 ### Acceptance Criteria
-- [ ] Price history entry is created automatically on GRN finalization, never manually editable
+- [ ] Price history entry is created automatically on GRN finalization, never manually editable, and correctly records the currency used for that specific transaction
 - [ ] Deleting a supplier with an open PO returns 409
+- [ ] Selecting a supplier with a `preferredCurrency` set pre-fills that currency on a new PO/Direct GRN, but the user can still change it before saving
+- [ ] A supplier can be saved with `taxRegistrationType`/`taxRegistrationNumber` fully optional — neither is required to create a supplier, since some small local suppliers may not be tax-registered at all
+- [ ] The supplier detail screen displays `stateOrProvince` clearly, since it's the key piece of context a user needs to manually pick the correct GST tax rate variant on a PO/GRN for that supplier
 
 ---
 
@@ -424,10 +449,13 @@ model PurchaseOrder {
   approvedById        String?
   approvedAt          DateTime?
   currencyCode        String   @default("SAR")   // ISO 4217, e.g. SAR, AED, USD, INR
-  exchangeRateToBase  Decimal  @db.Decimal(12,6) @default(1)  // rate at time of PO creation, vs outlet's base currency
+  exchangeRateToBase  Decimal  @db.Decimal(12,6) @default(1)  // rate at time of PO creation, vs outlet's base currency — user-editable inline on the form, per the UX enhancement above
+  isTaxInclusive      Boolean  @default(false)   // "Item Rates Are: Tax Exclusive/Inclusive" toggle — affects how every line's price is interpreted, see Business Logic
+  discountAmount      Decimal  @db.Decimal(12,2) @default(0)  // optional manual reduction — included in totalValue, shown as its own labeled line
+  otherChargesAmount  Decimal  @db.Decimal(12,2) @default(0)  // optional manual addition (rounding, freight, misc.) — included in totalValue, shown as its own labeled line
   subtotal            Decimal  @db.Decimal(12,2)  // sum of line amounts before tax
   taxAmount           Decimal  @db.Decimal(12,2)  // sum of line tax amounts
-  totalValue          Decimal  @db.Decimal(12,2)  // subtotal + taxAmount, in currencyCode
+  totalValue          Decimal  @db.Decimal(12,2)  // subtotal + taxAmount - discountAmount + otherChargesAmount, in currencyCode
   lines               POLine[]
   createdAt           DateTime @default(now())
 }
@@ -465,10 +493,13 @@ model GRN {
   receivedById    String
   receivedAt      DateTime @default(now())
   currencyCode    String   // inherited from PO if linked, otherwise chosen directly on the GRN
-  exchangeRateToBase Decimal @db.Decimal(12,6)
+  exchangeRateToBase Decimal @db.Decimal(12,6)   // user-editable inline on the form, per the UX enhancement above
+  isTaxInclusive  Boolean  @default(false)   // "Item Rates Are: Tax Exclusive/Inclusive" toggle — inherited from the PO if linked, otherwise set directly
+  discountAmount  Decimal @db.Decimal(12,2) @default(0)  // optional manual reduction — included in totalValue
+  otherChargesAmount Decimal @db.Decimal(12,2) @default(0)  // optional manual addition (rounding, freight, misc.) — included in totalValue
   subtotal        Decimal  @db.Decimal(12,2)
   taxAmount       Decimal  @db.Decimal(12,2)   // 0 if no tax applied at all — tax is optional, see Business Logic
-  totalValue      Decimal  @db.Decimal(12,2)
+  totalValue      Decimal  @db.Decimal(12,2)   // subtotal + taxAmount - discountAmount + otherChargesAmount
   invoiceNumber   String?  // supplier's invoice/bill reference number, entered manually or extracted via scan
   invoiceScanUrl  String?  // object-storage URL of the uploaded/scanned invoice image, if provided
   invoiceScanStatus String? // 'NONE' | 'UPLOADED' | 'PROCESSING' | 'EXTRACTED' | 'FAILED' — tracks AI-04 OCR extraction state
@@ -693,9 +724,77 @@ The GRN screen supports exactly three ways to start creating a GRN. All three co
 - **Gross Amount** = `totalValue` (`subtotal + taxAmount`) — this is the final payable amount
 These three figures must always be visibly labeled as **Net / Tax / Gross** on the GRN screen (not just "Subtotal/Tax/Total," to match standard invoicing terminology suppliers and accountants expect), both as a running total at the top/bottom of the GRN form and, where space allows, per line.
 
-### Business Logic **Note:** threshold comparison always converts `totalValue` to the outlet's base currency using the PO's snapshotted `exchangeRateToBase`, so thresholds stay consistent regardless of which currency a supplier bills in.
+### GRN Entry Screen — Making All Three Flows Visible
+
+The `/grn` screen's "New GRN" entry point must present **all three creation flows as explicit, visible options** — not just supported behind the scenes. Concretely, arriving at "New GRN" (whether from the GRN screen's own "+ New GRN" button, or from a PO detail page's "Create GRN" button) presents three clear choices, e.g. as three cards or a segmented control:
+
+1. **"Against a Purchase Order"** — opens the PO picker (Flow 2)
+2. **"Direct Entry (No PO)"** — opens the manual supplier + line-item form (Flow 1)
+3. **"Scan Invoice"** — opens the file upload for OCR extraction (Flow 3)
+
+If a GRN is started from a PO's detail page specifically, option 1 is pre-selected with that PO already chosen (skipping the picker step), but options 2 and 3 remain visible and selectable — the user isn't locked into the entry point they came from. **Scan Invoice must never be a hidden or secondary feature** — it's one of the three primary, equally-weighted ways to start a GRN, matching AI-04 in the SDLC document's list of market-differentiating AI features. Burying it as a small link or an afterthought button undersells a feature that's meant to be a selling point.
+
+### PO & GRN Document Actions — Print & Email
+
+A Purchase Order exists to be **sent to a supplier** — it isn't useful sitting only inside the app. Both PO and GRN need real document output, not just on-screen viewing.
+
+**API Endpoints:**
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/purchase-orders/:id/pdf` | Generate and return a formatted PDF of the PO (letterhead-style: outlet/chain branding, supplier details, line items, Net/Tax/Gross, terms) |
+| `POST` | `/purchase-orders/:id/send-email` | Email the PO PDF to the supplier |
+| `GET` | `/grn/:id/pdf` | Generate and return a formatted PDF of the GRN (goods-received document) |
+| `POST` | `/grn/:id/send-email` | Email the GRN PDF to a recipient (supplier, for delivery confirmation, or an internal accounts/finance address) |
+
+**POST /purchase-orders/:id/send-email — Request:**
+```json
+{
+  "toEmail": "supplier@example.com",
+  "ccEmails": ["accounts@myoutlet.com"],
+  "subject": "Purchase Order PO-2026-0142 from Jeddah Hotel — Main Restaurant",
+  "message": "Please find attached our purchase order. Kindly confirm receipt."
+}
+```
+`toEmail` defaults to the supplier's `email` field (FR-03) if set, but is always editable before sending — the user isn't locked into what's on file. If the supplier has no email on record and none is provided, the request is rejected with a clear validation error rather than silently failing.
+
+**Screens:**
+- **Print button** (in the PO/GRN detail view's action bar, alongside the existing Edit/status actions): generates the **real formatted PDF** via `GET /:id/pdf` and opens it in a new tab / triggers a download — this is a proper generated document, not just the browser's native "print this webpage" function, which would print the app's UI chrome (sidebar, header, etc.) rather than a clean business document.
+- **Email button**: opens a compose modal — recipient (pre-filled from supplier email, editable), CC, subject (pre-filled with a sensible default), message body, and a preview/attachment indicator showing the PDF that will be sent. Sending calls `POST /:id/send-email`; success/failure is confirmed in the UI, and a successful send is logged to the Activity Log (FR-18) — "PO-2026-0142 emailed to supplier@example.com."
+- Both actions are available regardless of PO status, though emailing a `DRAFT` PO should show a mild confirmation ("This PO hasn't been approved yet — send anyway?") since sending an unapproved order to a supplier is usually a mistake, not a deliberate action.
+
+**Business Logic:**
+- PDF generation happens server-side (not a frontend print-to-PDF hack), using the same design-token branding (logo, colors) established in FR-17, so the document looks like it came from a professional system.
+- Email sending goes through the same notification infrastructure described in FR-07 (Alerts) — a swappable provider interface, not hardcoded to one email service.
+- Every successful `send-email` call is recorded, including timestamp and recipient, viewable from the PO/GRN detail screen (e.g., "Last sent: 21 Jul 2026, 3:40 PM to supplier@example.com") — so it's always clear whether and when a document was actually sent, not just that the button exists.
+
+### Acceptance Criteria (GRN Entry Screen & Document Actions)
+- [ ] The "New GRN" screen presents all three creation flows as equally visible, primary options — none is hidden, secondary, or harder to discover than the others
+- [ ] Starting a GRN from a PO's detail page pre-selects the "Against a PO" flow with that PO chosen, but the other two flows remain reachable from the same screen
+- [ ] `GET /purchase-orders/:id/pdf` and `GET /grn/:id/pdf` produce a real, formatted business document — not a browser print of the app's UI
+- [ ] Emailing a PO/GRN defaults the recipient to the supplier's email on file, but allows editing it before sending
+- [ ] Attempting to email with no valid recipient email (none on file, none provided) is rejected with a clear error, not a silent failure
+- [ ] A successful email send is recorded and visibly shown on the PO/GRN detail screen (timestamp + recipient), and produces an Activity Log entry
+- [ ] Emailing a `DRAFT` (unapproved) PO shows a confirmation prompt before sending
+
+### PO & GRN Screen Structure and UX Enhancements
+
+**Screen structure — confirming GRN is standalone:** the GRN screen lives at its own route/section in the app (e.g., `/grn`), separate from the Purchase Order screen (`/purchase-orders`) — it is never just a tab or modal buried inside a PO. A GRN can be *entered from* a PO's detail page (a "Create GRN" button that pre-selects that PO for Flow 2), but the GRN screen itself always supports starting fresh via any of the three flows (Direct / Against PO / Scan Invoice), independent of where the user navigated from.
+
+**Enhancements adopted for both PO and GRN forms, based on common invoicing-software UX patterns:**
+
+- **Inline, editable exchange rate display** — whenever the document's currency differs from the outlet's base currency, show the rate directly at the top of the form (e.g., "1 EUR = 3.75 SAR") with an inline edit affordance, rather than only storing `exchangeRateToBase` silently in the background. Editing it here updates the rate used for *this document's* base-currency conversion; it does not retroactively change the `ExchangeRate` reference table's history unless the user explicitly also updates that (a separate, clearly distinct action).
+- **"Item Rates Are: Tax Exclusive / Tax Inclusive" toggle**, set once per document (PO or GRN), affecting how every line's entered price is interpreted:
+  - **Tax Exclusive** (the default, and everything described elsewhere in this FR assumes this): `lineSubtotal = qty * price`, tax is added on top.
+  - **Tax Inclusive**: the entered `price` already includes tax — the system must reverse-calculate: `lineSubtotal = lineTotal / (1 + ratePercent/100)`, `lineTaxAmount = lineTotal - lineSubtotal`, where `lineTotal = qty * price` (the price as entered). This matters because some suppliers quote inclusive prices — getting this wrong silently overcharges or undercharges tax on every line.
+  - This toggle only makes sense when at least one line has a tax rate applied — if no tax is applied at all on the document, exclusive/inclusive is moot.
+- **Current stock shown inline in the item picker**, when adding a line — e.g., "Current stock: 12.5 kg" displayed next to the item once selected, so the person creating the PO/GRN can see at a glance whether they're about to order something already well-stocked, without leaving the form to check.
+- **Document-level Discount and Other Charges fields** (optional, separate from tax and from each other) — Discount is a manual reduction; Other Charges covers rounding, freight, or miscellaneous fees that don't belong to any specific line. Both default to 0.00. Discount is subtracted and Other Charges is added into the Gross Amount total; each is shown as its own labeled line in the Net/Tax/Discount/Other Charges/Gross summary (e.g., "Net: X, Tax: Y, Discount: -D, Other Charges: C, Gross: X+Y-D+C") — collapsed/hidden when its value is 0, to avoid clutter in the common case where neither applies.
+- **Currency shown as a small badge next to the supplier selector**, immediately visible once a supplier is chosen (pre-filled from the supplier's `preferredCurrency`, per FR-03), rather than only appearing once the user scrolls to a separate currency field.
+
+### Business Logic
+**Note:** approval-threshold comparison always converts `totalValue` to the outlet's base currency using the PO's snapshotted `exchangeRateToBase`, so thresholds stay consistent regardless of which currency a supplier bills in.
 - **Tax calculation is entirely optional, per line (server-side, never trusted from client):**
-  1. For each line: `lineSubtotal = orderedQty (or receivedQty for Direct GRN) * price`.
+  1. For each line: `lineSubtotal = orderedQty (or receivedQty for Direct GRN) * price` (adjusted per the Tax Exclusive/Inclusive toggle above).
   2. If `taxRateId` is provided: look up its `ratePercent`; `lineTaxAmount = round(lineSubtotal * ratePercent / 100, 2)`; `lineTotal = lineSubtotal + lineTaxAmount`.
   3. **If `taxRateId` is omitted or explicitly `null`, the line is untaxed** — `taxRate: 0`, `lineTaxAmount: 0`, `lineTotal = lineSubtotal`. This is a valid, first-class state, not an error — many items/suppliers are legitimately tax-exempt or the outlet may not track tax at the line level at all. Do **not** silently fall back to the outlet's default tax rate when `taxRateId` is omitted — that "apply default if missing" behavior from earlier in this FR is replaced by this simpler rule: no `taxRateId` means no tax, full stop. (This supersedes the earlier "apply the outlet's default TaxRate" fallback described below — tax must be an explicit, deliberate choice per line, not an assumed default.)
   4. PO/GRN-level `subtotal = SUM(lineSubtotal)`, `taxAmount = SUM(lineTaxAmount)`, `totalValue = subtotal + taxAmount`.
@@ -725,6 +824,11 @@ These three figures must always be visibly labeled as **Net / Tax / Gross** on t
 - [ ] Invoice scanning works identically whether or not the GRN is linked to a PO
 - [ ] **A GRN cannot be saved without a supplier, under any of the three creation flows** — enforced at the API/schema level, not just as a frontend form validation
 - [ ] The GRN screen clearly displays **Net Amount, Tax Amount, and Gross Amount** using those exact labels, both as running totals and (where space allows) per line
+- [ ] GRN is reachable as its own standalone screen/route, not only as a modal launched from a PO's detail page
+- [ ] The exchange rate is visibly displayed and editable inline on the PO/GRN form whenever the document currency differs from the outlet's base currency
+- [ ] Setting a document to "Tax Inclusive" correctly reverse-calculates `lineSubtotal`/`lineTaxAmount` from the entered price, rather than adding tax on top of it
+- [ ] The item picker shows the selected item's current stock level inline, without requiring navigation away from the PO/GRN form
+- [ ] A document-level Discount and/or Other Charges amount, if entered, is correctly included in the Gross Amount and shown as its own labeled line in the Net/Tax/Discount/Other Charges/Gross summary — hidden when zero
 
 ### Acceptance Criteria (Tax & Currency additions)
 - [ ] Tax amounts are always computed server-side from `taxRateId`, never accepted as a raw number from the client

@@ -20,9 +20,9 @@ vi.mock('@/lib/items-api', async () => {
 
 const categories: ApiCategory[] = [{ id: 'c1', name: 'Dry Goods', outletId: 'o1' }];
 const taxRates: ApiTaxRate[] = [
-  { id: 'tax-vat', outletId: 'o1', name: 'VAT 15%', ratePercent: '15.00', isDefault: false, isActive: true, countryCode: 'SA' },
-  { id: 'tax-zero', outletId: 'o1', name: 'Zero-Rated', ratePercent: '0.00', isDefault: false, isActive: true, countryCode: null },
-  { id: 'tax-old', outletId: 'o1', name: 'Old GST', ratePercent: '5.00', isDefault: false, isActive: false, countryCode: null },
+  { id: 'tax-vat', outletId: 'o1', name: 'VAT 15%', ratePercent: '15.00', isCompound: false, isDefault: false, isActive: true, countryCode: 'SA', components: [] },
+  { id: 'tax-zero', outletId: 'o1', name: 'Zero-Rated', ratePercent: '0.00', isCompound: false, isDefault: false, isActive: true, countryCode: null, components: [] },
+  { id: 'tax-old', outletId: 'o1', name: 'Old GST', ratePercent: '5.00', isCompound: false, isDefault: false, isActive: false, countryCode: null, components: [] },
 ];
 
 const existingItem: ApiItem = {

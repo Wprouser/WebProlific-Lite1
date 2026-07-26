@@ -188,9 +188,12 @@ model AuditLog {
   outletId   String? // not every audited action is outlet-scoped (e.g. a chain-level change)
   // Structured before/after snapshots — String (NVARCHAR(MAX)) per the SQL
   // Server compatibility note (no native Json column type); JSON.stringify/
-  // parse happens at the repository boundary.
-  before     String?
-  after      String?
+  // parse happens at the repository boundary. Explicit @db.NVarChar(Max) is
+  // required here — a bare `String` maps to NVARCHAR(1000) on SQL Server,
+  // which a full entity snapshot (e.g. a PurchaseOrder with several lines)
+  // overflows routinely, not just in edge cases.
+  before     String? @db.NVarChar(Max)
+  after      String? @db.NVarChar(Max)
   // FR-02: null for ordinary entries. 'HIGH' when a manager force-overrides
   // a stock-out that would otherwise take an item negative — the only
   // place the spec mentions AuditLog severity, so deliberately not a
@@ -243,8 +246,9 @@ model ActivityLog {
   description String
   // JSON-serialized string (NVARCHAR(MAX)) — SQL Server has no native Json
   // type via Prisma, so serialize/deserialize at the repository layer, same
-  // pattern as AuditLog.before/after.
-  metadata    String?
+  // pattern as AuditLog.before/after. Explicit @db.NVarChar(Max) — see that
+  // model's note on why a bare `String` (NVARCHAR(1000) default) overflows.
+  metadata    String? @db.NVarChar(Max)
   ipAddress   String?
   deviceInfo  String?
   createdAt   DateTime @default(now())
@@ -278,8 +282,11 @@ model TransactionLog {
   entityId       String // FK to the actual record that changed
   operation      String // Operation: 'CREATE' | 'UPDATE' | 'DELETE'
   fieldName      String? // the specific field that changed (null for CREATE/DELETE)
-  oldValue       String? // string-serialized previous value (null for CREATE)
-  newValue       String? // string-serialized new value (null for DELETE)
+  // string-serialized previous/new value — @db.NVarChar(Max) since a CREATE/
+  // DELETE row's value is the entire entity snapshot (see AuditLogService's
+  // buildEntityChange), not just one field's worth of text.
+  oldValue       String? @db.NVarChar(Max) // null for CREATE
+  newValue       String? @db.NVarChar(Max) // null for DELETE
   valueAmount    Decimal? @db.Decimal(12, 2)
   currencyCode   String?
   performedById  String?
@@ -302,13 +309,13 @@ model TransactionLog {
 // Unit is a String column, not a Prisma `enum` block — see the header note
 // above; enforced via src/items/constants/enums.ts.
 model Item {
-  id                String   @id @default(uuid())
+  id                String             @id @default(uuid())
   outletId          String
-  outlet            Outlet   @relation(fields: [outletId], references: [id])
+  outlet            Outlet             @relation(fields: [outletId], references: [id])
   name              String
   categoryId        String
-  category          Category @relation(fields: [categoryId], references: [id])
-  sku               String   @unique
+  category          Category           @relation(fields: [categoryId], references: [id])
+  sku               String             @unique
   // Deliberately not @unique, unlike sku — SQL Server's default unique
   // index treats every NULL as equal (unlike Postgres, where NULL != NULL
   // for uniqueness purposes), so a plain @unique here would reject a
@@ -316,15 +323,16 @@ model Item {
   // a barcode IS provided, via ItemsService's findByBarcode check.
   barcode           String?
   unit              String // Unit: KG | LITRE | PIECE | BOX | GRAM | ML
-  minStock          Decimal  @db.Decimal(10, 3)
-  maxStock          Decimal  @db.Decimal(10, 3)
+  minStock          Decimal            @db.Decimal(10, 3)
+  maxStock          Decimal            @db.Decimal(10, 3)
   // Denormalized, updated only by FR-02's Stock Transaction service — never
   // written directly by this module's own create/update endpoints.
-  currentStock      Decimal  @default(0) @db.Decimal(10, 3)
+  currentStock      Decimal            @default(0) @db.Decimal(10, 3)
   shelfLifeDays     Int?
-  costPrice         Decimal  @db.Decimal(12, 2)
-  // No Supplier relation — FR-03 (Suppliers) isn't built yet, so this is a
-  // loose reference for now, same pattern as AuditLog's polymorphic ids.
+  costPrice         Decimal            @db.Decimal(12, 2)
+  // Loose reference to Supplier.id, not a formal @relation — matches the
+  // spec's own Item model snippet (no FK shown there either) and the same
+  // pattern used for defaultTaxRateId below.
   defaultSupplierId String?
   // Free-text accounting metadata carried through on exports only — no
   // GL/ledger logic is implemented in-app.
@@ -334,11 +342,11 @@ model Item {
   // unblock this dropdown, but full FR-04/FR-16 (PO/GRN tax config,
   // Currency, ExchangeRate) still isn't built, so this stays unenforced
   // for now rather than adding FK integrity ahead of that larger piece.
-  defaultTaxRateId String?
+  defaultTaxRateId  String?
   storageLocation   String?
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
   stockTransactions StockTransaction[]
   images            ItemImage[]
 
@@ -362,24 +370,24 @@ model Category {
 // not built here — Currency/ExchangeRate (below) are built now (FR-16's
 // standalone Currency & Exchange Rates screen), ahead of PO/GRN.
 model TaxRate {
-  id          String   @id @default(uuid())
+  id          String             @id @default(uuid())
   outletId    String
   name        String // e.g. "VAT 15%", "GST 18% (Intra-state)", "GST 18% (Inter-state)", "Zero-Rated"
   // The total/effective rate — for compound rates this must equal the sum
   // of all component rates (enforced in TaxRatesService, not a DB
   // constraint), and is what's actually used to compute lineTaxAmount.
-  ratePercent Decimal  @db.Decimal(5, 2)
+  ratePercent Decimal            @db.Decimal(5, 2)
   // true for split taxes (GST-style: CGST+SGST or IGST); false for a
   // simple single-rate tax (VAT-style) — the only kind this model
   // originally supported.
-  isCompound  Boolean  @default(false)
+  isCompound  Boolean            @default(false)
   // Deliberately never set true by the seeder — per spec, tax stays an
   // explicit per-line choice, never silently auto-applied.
-  isDefault   Boolean  @default(false)
-  isActive    Boolean  @default(true)
+  isDefault   Boolean            @default(false)
+  isActive    Boolean            @default(true)
   countryCode String? // e.g. "SA" — for default suggestion by outlet locale
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
   // Empty for isCompound: false; 1+ rows for isCompound: true (a single
   // IGST component is valid — India's inter-state GST is still modeled as
   // "compound" for consistency even though it's only one line).
@@ -437,6 +445,267 @@ model ExchangeRate {
   source         String // 'MANUAL' | 'API' (API reserved for a future scheduled FX sync job)
 
   @@index([baseCurrency, targetCurrency, effectiveDate])
+}
+
+// FR-03: Supplier Management. Outlet-scoped (unlike Currency/ExchangeRate
+// above) — same convention as TaxRate: plain outletId, no @relation.
+model Supplier {
+  id                    String   @id @default(uuid())
+  outletId              String
+  // Short internal reference code (e.g. "SUP-001") for printed POs/reports
+  // — distinct from the internal UUID, optional.
+  supplierCode          String?
+  name                  String
+  contactPerson         String?
+  phone                 String?
+  email                 String?
+  addressLine           String?
+  city                  String?
+  // Reference info only — shown on the supplier profile so whoever creates
+  // a PO/GRN can manually pick the correct GST Intra/Inter-state tax rate
+  // variant. Deliberately does NOT drive automatic tax determination (same
+  // scope boundary as FR-04's Tax Configuration — see that section).
+  stateOrProvince       String?
+  countryCode           String? // ISO 3166-1 alpha-2, e.g. "SA", "IN", "AE"
+  postalCode            String?
+  // Loose reference to Currency.code (FR-16) — pre-fills the PO/GRN
+  // currency field when this supplier is selected; always overridable per
+  // transaction, never a locked constraint.
+  preferredCurrency     String?
+  // Free text/lookup label, e.g. "GSTIN", "VAT Reg. No.", "TRN", "NONE" —
+  // deliberately not a hardcoded enum since registration naming varies by
+  // country.
+  taxRegistrationType   String?
+  // No format/checksum validation beyond "non-empty if provided" —
+  // per-country validation (GSTIN checksums, VAT formats, etc.) is
+  // explicitly out of scope.
+  taxRegistrationNumber String?
+  paymentTerms          String? // e.g. "NET_15", "NET_30", "COD"
+  leadTimeDays          Int?
+  // Optional — accounts-payable reference only; no payment processing
+  // happens in-app.
+  bankAccountName       String?
+  bankAccountNumber     String?
+  bankIfscOrSwift       String? // IFSC (India) or SWIFT/BIC — single free-text field, not split by country
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([outletId, isActive])
+}
+
+// Auto-created only when a GRN (FR-04) is finalized — see PrismaGrnRepository.
+// currencyCode is captured per-row (not assumed from the supplier's
+// current preferredCurrency) since that can change over time.
+model SupplierPriceHistory {
+  id           String   @id @default(uuid())
+  supplierId   String
+  itemId       String
+  price        Decimal  @db.Decimal(12, 2)
+  currencyCode String   @default("SAR")
+  // price * the GRN's exchangeRateToBase at the time it was recorded — lets
+  // cross-supplier price comparisons (AI-09) stay valid even when suppliers
+  // bill in different currencies. Nullable only because rows recorded
+  // before this column existed have no snapshotted rate to derive it from;
+  // every row created going forward always populates it.
+  priceInBaseCurrency Decimal? @db.Decimal(12, 2)
+  recordedAt   DateTime @default(now())
+  source       String // 'PO' | 'GRN' | 'MANUAL'
+
+  @@index([supplierId, itemId, recordedAt])
+}
+
+// FR-04: Purchase Order & Approval Workflow. POStatus is a String column,
+// not a Prisma `enum` block — see the header note above; enforced via
+// src/purchase-orders/constants/enums.ts.
+model PurchaseOrder {
+  id                   String    @id @default(uuid())
+  outletId             String
+  supplierId           String
+  status               String    @default("DRAFT")
+  expectedDeliveryDate DateTime?
+  createdById          String
+  approvedById         String?
+  approvedAt           DateTime?
+  currencyCode         String    @default("SAR")
+  // Rate at time of PO creation vs. the outlet's base currency — snapshotted,
+  // not recalculated later (spec: "historical POs remain accurate even if
+  // rates move"); user-editable inline on the form before save.
+  exchangeRateToBase   Decimal   @default(1) @db.Decimal(12, 6)
+  // "Item Rates Are: Tax Exclusive/Inclusive" toggle — affects how every
+  // line's price is interpreted; see apply-document-tax.ts.
+  isTaxInclusive       Boolean   @default(false)
+  // Optional manual reduction/addition — included in totalValue, each shown
+  // as its own labeled line (hidden when 0), never touches any one line.
+  discountAmount       Decimal   @default(0) @db.Decimal(12, 2)
+  otherChargesAmount   Decimal   @default(0) @db.Decimal(12, 2)
+  subtotal             Decimal   @db.Decimal(12, 2)
+  taxAmount            Decimal   @db.Decimal(12, 2)
+  totalValue           Decimal   @db.Decimal(12, 2)
+  lines                POLine[]
+  grns                 GRN[]
+  createdAt            DateTime  @default(now())
+  // Spec: "A successful email send is recorded ... viewable from the PO/GRN
+  // detail screen (e.g., 'Last sent: 21 Jul 2026, 3:40 PM to
+  // supplier@example.com')" — tracks only the most recent send, not a full
+  // history log. Deliberately NOT modeled via FR-18's ActivityLog (its own
+  // read endpoint, GET /activity-log, is role-gated to OUTLET_MANAGER+ —
+  // see ActivityLogController — which would block a STORE_STAFF from
+  // seeing send-history on a document they can otherwise view); this is
+  // part of the PO/GRN's own domain object instead, visible to anyone who
+  // can already view that document. Every send still separately produces
+  // its own ActivityLog entry (FR-18's "every mutating endpoint" rule),
+  // this pair of columns is purely for the detail screen's own display.
+  lastEmailedAt        DateTime?
+  lastEmailedTo        String?
+
+  @@index([outletId, status])
+  @@index([supplierId])
+}
+
+model POLine {
+  id              String               @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id])
+  itemId          String
+  orderedQty      Decimal              @db.Decimal(10, 3)
+  // Unit price, excl. tax (or as-entered if isTaxInclusive, then
+  // reverse-calculated), in the PO's currencyCode.
+  expectedPrice   Decimal              @db.Decimal(12, 2)
+  taxRateId       String?
+  // Percentage snapshotted at line creation — e.g. 18.00 for a compound GST
+  // rate — so later edits to the TaxRate itself never retroactively change
+  // this line (spec's Business Rules).
+  taxRate         Decimal              @default(0) @db.Decimal(5, 2)
+  lineSubtotal    Decimal              @db.Decimal(12, 2)
+  lineTaxAmount   Decimal              @db.Decimal(12, 2)
+  lineTotal       Decimal              @db.Decimal(12, 2)
+  receivedQty     Decimal              @default(0) @db.Decimal(10, 3)
+  // Empty for a simple flat-rate tax; 1+ rows snapshotted from
+  // TaxRateComponent when the applied TaxRate was compound.
+  taxComponents   POLineTaxComponent[]
+
+  @@index([purchaseOrderId])
+}
+
+model POLineTaxComponent {
+  id              String  @id @default(uuid())
+  poLineId        String
+  poLine          POLine  @relation(fields: [poLineId], references: [id])
+  componentName   String // e.g. "CGST", "SGST", "IGST" — snapshotted from TaxRateComponent.componentName
+  componentRate   Decimal @db.Decimal(5, 2)
+  // Sum of all components on a line equals POLine.lineTaxAmount.
+  componentAmount Decimal @db.Decimal(12, 2)
+  // Display order (source TaxRateComponent's position) — never sort by
+  // `id` here, a random UUID with no correlation to that order (see the
+  // TaxRateComponent.sortOrder fix this mirrors).
+  sortOrder       Int     @default(0)
+
+  @@index([poLineId])
+}
+
+// GRN.invoiceScanStatus is a String column — enforced via
+// src/grn/constants/enums.ts. purchaseOrderId is nullable: a GRN can exist
+// with no PO at all (Direct GRN, Flow 1) — see the Technical Spec's "GRN
+// Creation Flows" section for all three entry paths.
+model GRN {
+  id                 String         @id @default(uuid())
+  outletId           String
+  purchaseOrderId    String?
+  purchaseOrder      PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  // Always required, whether or not a PO exists — enforced at the schema
+  // level (spec: "a GRN can never be saved without a supplier"), not just a
+  // frontend validation.
+  supplierId         String
+  receivedById       String
+  receivedAt         DateTime       @default(now())
+  // Inherited from the PO if linked, otherwise chosen directly on the GRN.
+  currencyCode       String
+  exchangeRateToBase Decimal        @db.Decimal(12, 6)
+  isTaxInclusive     Boolean        @default(false)
+  discountAmount     Decimal        @default(0) @db.Decimal(12, 2)
+  otherChargesAmount Decimal        @default(0) @db.Decimal(12, 2)
+  subtotal           Decimal        @db.Decimal(12, 2)
+  taxAmount          Decimal        @db.Decimal(12, 2)
+  totalValue         Decimal        @db.Decimal(12, 2)
+  invoiceNumber      String?
+  invoiceScanUrl     String?
+  invoiceScanStatus  String? // 'NONE' | 'UPLOADED' | 'PROCESSING' | 'EXTRACTED' | 'FAILED'
+  lines              GRNLine[]
+  varianceFlagged    Boolean        @default(false)
+  // See PurchaseOrder.lastEmailedAt/lastEmailedTo — same rationale.
+  lastEmailedAt      DateTime?
+  lastEmailedTo      String?
+
+  @@index([outletId, receivedAt])
+  @@index([supplierId])
+}
+
+model GRNLine {
+  id            String                @id @default(uuid())
+  grnId         String
+  grn           GRN                   @relation(fields: [grnId], references: [id])
+  itemId        String
+  // Nullable — no "ordered" quantity exists for a Direct GRN with no PO.
+  orderedQty    Decimal?              @db.Decimal(10, 3)
+  receivedQty   Decimal               @db.Decimal(10, 3)
+  actualPrice   Decimal               @db.Decimal(12, 2)
+  // Nullable — tax is entirely optional per line (spec's Business Logic:
+  // "no taxRateId means no tax, full stop," never a silently-applied default).
+  taxRateId     String?
+  taxRate       Decimal               @default(0) @db.Decimal(5, 2)
+  lineSubtotal  Decimal               @db.Decimal(12, 2)
+  lineTaxAmount Decimal               @db.Decimal(12, 2)
+  lineTotal     Decimal               @db.Decimal(12, 2)
+  taxComponents GRNLineTaxComponent[]
+
+  @@index([grnId])
+}
+
+model GRNLineTaxComponent {
+  id              String  @id @default(uuid())
+  grnLineId       String
+  grnLine         GRNLine @relation(fields: [grnLineId], references: [id])
+  componentName   String
+  componentRate   Decimal @db.Decimal(5, 2)
+  componentAmount Decimal @db.Decimal(12, 2)
+  // See POLineTaxComponent.sortOrder — same rationale.
+  sortOrder       Int     @default(0)
+
+  @@index([grnLineId])
+}
+
+// AI-04's Scan Invoice (FR-04 Flow 3) — a standalone, pre-review scan
+// session, deliberately NOT the GRN table itself. GRN has no draft/status
+// field and creating one is already a one-shot financial action (posts
+// StockTransaction + SupplierPriceHistory, per PrismaGrnRepository) — so
+// the "upload, OCR runs async, user reviews/edits, then confirms" flow
+// can't happen against an already-finalized GRN row. This row is purely
+// the OCR artifact + extracted data; the real GRN is only ever created
+// afterward via the existing POST /grn/direct or POST /purchase-orders/
+// :id/grn (optionally passing this row's id back so the resulting GRN's
+// invoiceScanUrl/invoiceScanStatus can reference it) — never auto-created
+// from here.
+model InvoiceScan {
+  id            String   @id @default(uuid())
+  outletId      String
+  fileUrl       String
+  status        String   @default("PROCESSING") // 'PROCESSING' | 'EXTRACTED' | 'FAILED'
+  // Serialized JSON (SQL Server has no native Json type — see the header
+  // note and ActivityLog.metadata's identical precedent), shaped like
+  // ExtractedInvoiceData: { invoiceNumber?, supplierNameGuess?,
+  // matchedSupplierId, lines: [{ itemNameGuess, quantity, unitPrice,
+  // matchedItemId }] }. Null until status reaches EXTRACTED/FAILED.
+  // Explicitly NVarChar(Max) — unlike a typical single-entity audit
+  // before/after snapshot, this can hold an arbitrary number of invoice
+  // line items and would realistically risk truncation at the default
+  // NVARCHAR(1000) Prisma otherwise generates for a bare `String?`.
+  extractedData String? @db.NVarChar(Max)
+  failureReason String?
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  @@index([outletId, createdAt])
 }
 
 // FR-01: item images. Exactly one image per item may have isPrimary: true —

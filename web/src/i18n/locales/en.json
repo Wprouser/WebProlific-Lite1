@@ -27,6 +27,8 @@
     "taxes": "Taxes",
     "currency": "Currency",
     "suppliers": "Suppliers",
+    "purchaseOrders": "Purchase Orders",
+    "grn": "GRN",
     "reports": "Reports",
     "users": "Users",
     "styleguide": "Styleguide",
@@ -500,6 +502,275 @@
       "saving": "Saving…",
       "saveError": "Couldn't save. Please try again.",
       "permissionError": "You don't have permission to make this change."
+    }
+  },
+  "suppliers": {
+    "title": "Suppliers",
+    "subtitle": "Manage the suppliers your outlet purchases from",
+    "loadError": "Couldn't load suppliers",
+    "newPo": "New Purchase Order",
+    "addSupplier": "Add supplier",
+    "searchPlaceholder": "Search by name or code…",
+    "filters": {
+      "allStatus": "All statuses",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "table": {
+      "name": "Name",
+      "supplierCode": "Code",
+      "contact": "Contact",
+      "preferredCurrency": "Preferred Currency",
+      "taxRegistration": "Tax Registration",
+      "status": "Status"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "edit": "Edit",
+    "deactivate": "Deactivate",
+    "deactivating": "Deactivating…",
+    "confirmDeactivate": "Deactivate \"{{name}}\"? It will no longer appear as an option for new purchases.",
+    "confirmYes": "Yes, deactivate",
+    "cancel": "Cancel",
+    "empty": {
+      "title": "No suppliers yet",
+      "description": "Add your first supplier to start recording purchase orders and GRNs against them."
+    },
+    "form": {
+      "createTitle": "Add supplier",
+      "editTitle": "Edit supplier",
+      "sectionGeneral": "General",
+      "sectionAddress": "Address",
+      "sectionCurrencyTax": "Currency & Tax",
+      "sectionPaymentBank": "Payment & Bank",
+      "name": "Name",
+      "supplierCode": "Supplier Code",
+      "supplierCodePlaceholder": "e.g. SUP-001",
+      "contactPerson": "Contact Person",
+      "phone": "Phone",
+      "email": "Email",
+      "addressLine": "Address",
+      "city": "City",
+      "stateOrProvince": "State / Province",
+      "stateOrProvincePlaceholder": "e.g. Riyadh",
+      "countryCode": "Country Code",
+      "countryCodePlaceholder": "e.g. SA",
+      "postalCode": "Postal Code",
+      "preferredCurrency": "Preferred Currency",
+      "preferredCurrencyPlaceholder": "None",
+      "taxRegistrationType": "Tax Registration Type",
+      "taxRegistrationTypePlaceholder": "e.g. GSTIN, VAT Reg. No., TRN",
+      "taxRegistrationNumber": "Tax Registration Number",
+      "paymentTerms": "Payment Terms",
+      "paymentTermsPlaceholder": "e.g. NET_30",
+      "leadTimeDays": "Lead Time (days)",
+      "bankAccountName": "Bank Account Name",
+      "bankAccountNumber": "Bank Account Number",
+      "bankIfscOrSwift": "IFSC / SWIFT",
+      "activeToggle": "Active",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveError": "Couldn't save. Please try again.",
+      "permissionError": "You don't have permission to make this change."
+    },
+    "detail": {
+      "back": "Back to suppliers",
+      "loadError": "Couldn't load this supplier",
+      "notSet": "Not set",
+      "performance": "Performance",
+      "totalGrns": "Total GRNs",
+      "onTimeRate": "On-Time Rate",
+      "priceConsistency": "Price Consistency",
+      "notYetAvailable": "Not yet available",
+      "priceHistory": "Price History",
+      "priceHistoryEmpty": {
+        "title": "No price history yet",
+        "description": "Price history is recorded automatically once a GRN is finalized against this supplier."
+      }
+    }
+  },
+  "purchaseOrders": {
+    "title": "Purchase Orders",
+    "subtitle": "Create, approve, and track purchase orders sent to suppliers",
+    "addNew": "New Purchase Order",
+    "back": "Back to purchase orders",
+    "edit": "Edit",
+    "status": {
+      "DRAFT": "Draft",
+      "PENDING_APPROVAL": "Pending Approval",
+      "APPROVED": "Approved",
+      "SENT_TO_SUPPLIER": "Sent to Supplier",
+      "PARTIALLY_RECEIVED": "Partially Received",
+      "FULLY_RECEIVED": "Fully Received",
+      "CLOSED": "Closed",
+      "REJECTED": "Rejected",
+      "CANCELLED": "Cancelled"
+    },
+    "list": {
+      "allStatuses": "All statuses",
+      "allSuppliers": "All suppliers",
+      "supplier": "Supplier",
+      "status": "Status",
+      "total": "Total",
+      "created": "Created",
+      "loadError": "Couldn't load purchase orders",
+      "empty": {
+        "title": "No purchase orders yet",
+        "description": "Create your first purchase order to start ordering stock from a supplier.",
+        "action": "New Purchase Order"
+      }
+    },
+    "actions": {
+      "submit": "Submit for Approval",
+      "approve": "Approve",
+      "reject": "Reject",
+      "rejectReason": "Reason for rejection",
+      "confirmReject": "Confirm Rejection",
+      "send": "Send to Supplier",
+      "close": "Close Order",
+      "createGrn": "Create GRN"
+    },
+    "detail": {
+      "title": "Purchase Order #{{id}}",
+      "loadError": "Couldn't load this purchase order",
+      "actionError": "That action couldn't be completed. Please try again.",
+      "supplier": "Supplier",
+      "expectedDelivery": "Expected Delivery"
+    },
+    "form": {
+      "createTitle": "New Purchase Order",
+      "editTitle": "Edit Purchase Order",
+      "loadError": "Couldn't load this purchase order",
+      "saveError": "Couldn't save. Please try again.",
+      "notDraftError": "This purchase order is no longer a draft and can't be edited.",
+      "supplier": "Supplier",
+      "supplierPlaceholder": "Select a supplier",
+      "currency": "Currency",
+      "exchangeRate": "Exchange Rate ({{from}} → {{to}})",
+      "exchangeRateHint": "Pre-filled from the latest rate on file — still editable for this order.",
+      "expectedDeliveryDate": "Expected Delivery Date",
+      "taxInclusiveToggle": "Tax Inclusive",
+      "taxInclusiveHint": "When on, line prices are treated as already including tax.",
+      "discount": "Discount",
+      "otherCharges": "Other Charges",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "lines": {
+      "item": "Item",
+      "itemPlaceholder": "Select an item",
+      "orderedQty": "Qty",
+      "expectedPrice": "Price",
+      "taxRate": "Tax",
+      "noTax": "No tax",
+      "lineTotal": "Line Total",
+      "currentStock": "Current stock: {{stock}} {{unit}}",
+      "addLine": "Add Line",
+      "removeLine": "Remove line"
+    },
+    "totals": {
+      "net": "Net",
+      "tax": "Tax",
+      "discount": "Discount",
+      "otherCharges": "Other Charges",
+      "gross": "Gross"
+    }
+  },
+  "grn": {
+    "title": "Goods Received Notes",
+    "subtitle": "Record stock received from suppliers, with or without a purchase order",
+    "addNew": "New GRN",
+    "back": "Back to GRNs",
+    "list": {
+      "loadError": "Couldn't load GRNs",
+      "source": "Source",
+      "receivedAt": "Received",
+      "empty": {
+        "title": "No GRNs yet",
+        "description": "Record your first goods-received note against a purchase order, directly, or by scanning an invoice.",
+        "action": "New GRN"
+      }
+    },
+    "new": {
+      "title": "New GRN",
+      "againstPo": {
+        "title": "Against a Purchase Order",
+        "description": "Pick an open PO and its lines auto-populate — accept or override quantity, price, and tax."
+      },
+      "direct": {
+        "title": "Direct Entry (No PO)",
+        "description": "Enter the supplier and line items manually — no ordered-quantity comparison applies."
+      },
+      "scan": {
+        "title": "Scan Invoice",
+        "description": "Upload a photo or PDF of the supplier invoice — extracted data always pre-fills the form for your review.",
+        "comingSoonBadge": "Coming Soon",
+        "comingSoonTooltip": "Scan Invoice is coming soon — pending a document-AI provider decision."
+      }
+    },
+    "form": {
+      "loadError": "Couldn't load",
+      "saveError": "Couldn't save. Please try again.",
+      "invoiceNumber": "Invoice Number"
+    },
+    "scan": {
+      "uploadPrompt": "Upload a photo or PDF of the supplier invoice",
+      "uploadAction": "Choose File",
+      "processing": "Reading the invoice…",
+      "reviewHint": "Review and correct every field below before confirming — nothing is saved until you confirm.",
+      "confirmAction": "Confirm & Create GRN",
+      "timeoutError": "The scan is taking longer than expected. Please try again.",
+      "failedError": "Couldn't process this invoice. Please try again or use Direct Entry instead.",
+      "failedTitle": "Couldn't read this invoice",
+      "retryAction": "Try another file",
+      "supplierUnmatched": "Couldn't confidently match \"{{guess}}\" to a supplier on file — please pick one."
+    },
+    "poForm": {
+      "pickerTitle": "Choose a Purchase Order",
+      "notReceivableError": "This purchase order can no longer be received against.",
+      "pickerEmpty": {
+        "title": "No purchase orders are ready to receive",
+        "description": "A PO must be Approved, Sent to Supplier, or Partially Received before you can create a GRN against it."
+      }
+    },
+    "lines": {
+      "item": "Item",
+      "orderedQty": "Ordered",
+      "receivedQty": "Qty Received",
+      "actualPrice": "Price"
+    },
+    "detail": {
+      "title": "GRN #{{id}}",
+      "loadError": "Couldn't load this GRN",
+      "againstPo": "Against PO",
+      "direct": "Direct",
+      "varianceFlagged": "Variance"
+    }
+  },
+  "documents": {
+    "print": "Print",
+    "email": {
+      "action": "Email",
+      "title": "Send by Email",
+      "to": "To",
+      "cc": "Cc",
+      "ccPlaceholder": "Comma-separated email addresses",
+      "subject": "Subject",
+      "message": "Message",
+      "send": "Send",
+      "sending": "Sending…",
+      "confirmSendAnyway": "Send Anyway",
+      "draftWarning": "This purchase order hasn't been approved yet — send anyway?",
+      "sendError": "Couldn't send. Please try again.",
+      "lastSent": "Last sent: {{date}} to {{recipient}}",
+      "poDefaultSubject": "Purchase Order #{{id}}",
+      "poDefaultMessage": "Please find attached our purchase order. Kindly confirm receipt.",
+      "grnDefaultSubject": "Goods Received Note #{{id}}",
+      "grnDefaultMessage": "Please find attached the goods received note for your records."
     }
   }
 }

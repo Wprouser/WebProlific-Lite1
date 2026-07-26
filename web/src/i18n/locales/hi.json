@@ -27,6 +27,8 @@
     "taxes": "कर",
     "currency": "मुद्रा",
     "suppliers": "आपूर्तिकर्ता",
+    "purchaseOrders": "खरीद आदेश",
+    "grn": "जीआरएन",
     "reports": "रिपोर्ट",
     "users": "उपयोगकर्ता",
     "styleguide": "स्टाइलगाइड",
@@ -500,6 +502,275 @@
       "saving": "सहेजा जा रहा है…",
       "saveError": "सेव नहीं हो सका। कृपया फिर से कोशिश करें।",
       "permissionError": "आपके पास यह बदलाव करने की अनुमति नहीं है।"
+    }
+  },
+  "suppliers": {
+    "title": "आपूर्तिकर्ता",
+    "subtitle": "उन आपूर्तिकर्ताओं का प्रबंधन करें जिनसे आपका आउटलेट खरीदारी करता है",
+    "loadError": "आपूर्तिकर्ता लोड नहीं हो सके",
+    "newPo": "नया खरीद आदेश",
+    "addSupplier": "आपूर्तिकर्ता जोड़ें",
+    "searchPlaceholder": "नाम या कोड से खोजें…",
+    "filters": {
+      "allStatus": "सभी स्थितियां",
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय"
+    },
+    "table": {
+      "name": "नाम",
+      "supplierCode": "कोड",
+      "contact": "संपर्क",
+      "preferredCurrency": "पसंदीदा मुद्रा",
+      "taxRegistration": "कर पंजीकरण",
+      "status": "स्थिति"
+    },
+    "status": {
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय"
+    },
+    "edit": "संपादित करें",
+    "deactivate": "निष्क्रिय करें",
+    "deactivating": "निष्क्रिय हो रहा है…",
+    "confirmDeactivate": "\"{{name}}\" को निष्क्रिय करें? यह नई खरीद के लिए विकल्प के रूप में अब दिखाई नहीं देगा।",
+    "confirmYes": "हां, निष्क्रिय करें",
+    "cancel": "रद्द करें",
+    "empty": {
+      "title": "अभी तक कोई आपूर्तिकर्ता नहीं",
+      "description": "खरीद आदेश और GRN दर्ज करना शुरू करने के लिए अपना पहला आपूर्तिकर्ता जोड़ें।"
+    },
+    "form": {
+      "createTitle": "आपूर्तिकर्ता जोड़ें",
+      "editTitle": "आपूर्तिकर्ता संपादित करें",
+      "sectionGeneral": "सामान्य",
+      "sectionAddress": "पता",
+      "sectionCurrencyTax": "मुद्रा और कर",
+      "sectionPaymentBank": "भुगतान और बैंक",
+      "name": "नाम",
+      "supplierCode": "आपूर्तिकर्ता कोड",
+      "supplierCodePlaceholder": "उदा. SUP-001",
+      "contactPerson": "संपर्क व्यक्ति",
+      "phone": "फ़ोन",
+      "email": "ईमेल",
+      "addressLine": "पता",
+      "city": "शहर",
+      "stateOrProvince": "राज्य / प्रांत",
+      "stateOrProvincePlaceholder": "उदा. रियाद",
+      "countryCode": "देश कोड",
+      "countryCodePlaceholder": "उदा. SA",
+      "postalCode": "डाक कोड",
+      "preferredCurrency": "पसंदीदा मुद्रा",
+      "preferredCurrencyPlaceholder": "कोई नहीं",
+      "taxRegistrationType": "कर पंजीकरण प्रकार",
+      "taxRegistrationTypePlaceholder": "उदा. GSTIN, VAT रजि. नं., TRN",
+      "taxRegistrationNumber": "कर पंजीकरण संख्या",
+      "paymentTerms": "भुगतान शर्तें",
+      "paymentTermsPlaceholder": "उदा. NET_30",
+      "leadTimeDays": "लीड टाइम (दिन)",
+      "bankAccountName": "बैंक खाता नाम",
+      "bankAccountNumber": "बैंक खाता संख्या",
+      "bankIfscOrSwift": "IFSC / SWIFT",
+      "activeToggle": "सक्रिय",
+      "cancel": "रद्द करें",
+      "save": "सहेजें",
+      "saving": "सहेजा जा रहा है…",
+      "saveError": "सेव नहीं हो सका। कृपया फिर से कोशिश करें।",
+      "permissionError": "आपके पास यह बदलाव करने की अनुमति नहीं है।"
+    },
+    "detail": {
+      "back": "आपूर्तिकर्ताओं पर वापस जाएं",
+      "loadError": "यह आपूर्तिकर्ता लोड नहीं हो सका",
+      "notSet": "सेट नहीं है",
+      "performance": "प्रदर्शन",
+      "totalGrns": "कुल GRN",
+      "onTimeRate": "समय पर दर",
+      "priceConsistency": "मूल्य स्थिरता",
+      "notYetAvailable": "अभी उपलब्ध नहीं",
+      "priceHistory": "मूल्य इतिहास",
+      "priceHistoryEmpty": {
+        "title": "अभी तक कोई मूल्य इतिहास नहीं",
+        "description": "इस आपूर्तिकर्ता के विरुद्ध GRN पूर्ण होते ही मूल्य इतिहास स्वतः दर्ज हो जाता है।"
+      }
+    }
+  },
+  "purchaseOrders": {
+    "title": "खरीद आदेश",
+    "subtitle": "आपूर्तिकर्ताओं को भेजे जाने वाले खरीद आदेश बनाएं, स्वीकृत करें और ट्रैक करें",
+    "addNew": "नया खरीद आदेश",
+    "back": "खरीद आदेशों पर वापस जाएं",
+    "edit": "संपादित करें",
+    "status": {
+      "DRAFT": "मसौदा",
+      "PENDING_APPROVAL": "स्वीकृति लंबित",
+      "APPROVED": "स्वीकृत",
+      "SENT_TO_SUPPLIER": "आपूर्तिकर्ता को भेजा गया",
+      "PARTIALLY_RECEIVED": "आंशिक रूप से प्राप्त",
+      "FULLY_RECEIVED": "पूर्ण रूप से प्राप्त",
+      "CLOSED": "बंद",
+      "REJECTED": "अस्वीकृत",
+      "CANCELLED": "रद्द"
+    },
+    "list": {
+      "allStatuses": "सभी स्थितियां",
+      "allSuppliers": "सभी आपूर्तिकर्ता",
+      "supplier": "आपूर्तिकर्ता",
+      "status": "स्थिति",
+      "total": "कुल",
+      "created": "बनाया गया",
+      "loadError": "खरीद आदेश लोड नहीं हो सके",
+      "empty": {
+        "title": "अभी तक कोई खरीद आदेश नहीं",
+        "description": "किसी आपूर्तिकर्ता से स्टॉक ऑर्डर करना शुरू करने के लिए अपना पहला खरीद आदेश बनाएं।",
+        "action": "नया खरीद आदेश"
+      }
+    },
+    "actions": {
+      "submit": "स्वीकृति हेतु भेजें",
+      "approve": "स्वीकृत करें",
+      "reject": "अस्वीकार करें",
+      "rejectReason": "अस्वीकृति का कारण",
+      "confirmReject": "अस्वीकृति की पुष्टि करें",
+      "send": "आपूर्तिकर्ता को भेजें",
+      "close": "आदेश बंद करें",
+      "createGrn": "जीआरएन बनाएं"
+    },
+    "detail": {
+      "title": "खरीद आदेश #{{id}}",
+      "loadError": "यह खरीद आदेश लोड नहीं हो सका",
+      "actionError": "यह कार्रवाई पूरी नहीं हो सकी। कृपया फिर से कोशिश करें।",
+      "supplier": "आपूर्तिकर्ता",
+      "expectedDelivery": "अपेक्षित डिलीवरी"
+    },
+    "form": {
+      "createTitle": "नया खरीद आदेश",
+      "editTitle": "खरीद आदेश संपादित करें",
+      "loadError": "यह खरीद आदेश लोड नहीं हो सका",
+      "saveError": "सेव नहीं हो सका। कृपया फिर से कोशिश करें।",
+      "notDraftError": "यह खरीद आदेश अब मसौदा नहीं है और इसे संपादित नहीं किया जा सकता।",
+      "supplier": "आपूर्तिकर्ता",
+      "supplierPlaceholder": "एक आपूर्तिकर्ता चुनें",
+      "currency": "मुद्रा",
+      "exchangeRate": "विनिमय दर ({{from}} → {{to}})",
+      "exchangeRateHint": "फ़ाइल पर मौजूद नवीनतम दर से स्वतः भरा गया — इस आदेश के लिए अभी भी संपादन योग्य।",
+      "expectedDeliveryDate": "अपेक्षित डिलीवरी तिथि",
+      "taxInclusiveToggle": "कर सहित",
+      "taxInclusiveHint": "चालू होने पर, लाइन मूल्य को पहले से ही कर सहित माना जाता है।",
+      "discount": "छूट",
+      "otherCharges": "अन्य शुल्क",
+      "cancel": "रद्द करें",
+      "save": "सहेजें",
+      "saving": "सहेजा जा रहा है…"
+    },
+    "lines": {
+      "item": "आइटम",
+      "itemPlaceholder": "एक आइटम चुनें",
+      "orderedQty": "मात्रा",
+      "expectedPrice": "मूल्य",
+      "taxRate": "कर",
+      "noTax": "कोई कर नहीं",
+      "lineTotal": "लाइन कुल",
+      "currentStock": "वर्तमान स्टॉक: {{stock}} {{unit}}",
+      "addLine": "लाइन जोड़ें",
+      "removeLine": "लाइन हटाएं"
+    },
+    "totals": {
+      "net": "शुद्ध",
+      "discount": "छूट",
+      "otherCharges": "अन्य शुल्क",
+      "tax": "कर",
+      "gross": "सकल"
+    }
+  },
+  "grn": {
+    "title": "माल प्राप्ति नोट (GRN)",
+    "subtitle": "आपूर्तिकर्ताओं से प्राप्त स्टॉक दर्ज करें, खरीद आदेश के साथ या उसके बिना",
+    "addNew": "नया GRN",
+    "back": "GRN पर वापस जाएं",
+    "list": {
+      "loadError": "GRN लोड नहीं हो सके",
+      "source": "स्रोत",
+      "receivedAt": "प्राप्ति तिथि",
+      "empty": {
+        "title": "अभी तक कोई GRN नहीं",
+        "description": "किसी खरीद आदेश के विरुद्ध, सीधे, या इनवॉइस स्कैन करके अपना पहला माल प्राप्ति नोट दर्ज करें।",
+        "action": "नया GRN"
+      }
+    },
+    "new": {
+      "title": "नया GRN",
+      "againstPo": {
+        "title": "खरीद आदेश के विरुद्ध",
+        "description": "एक खुला PO चुनें और उसकी लाइनें स्वतः भर जाती हैं — मात्रा, मूल्य और कर स्वीकार करें या बदलें।"
+      },
+      "direct": {
+        "title": "सीधी प्रविष्टि (कोई PO नहीं)",
+        "description": "आपूर्तिकर्ता और लाइन आइटम मैन्युअल रूप से दर्ज करें — कोई ऑर्डर-मात्रा तुलना लागू नहीं होती।"
+      },
+      "scan": {
+        "title": "इनवॉइस स्कैन करें",
+        "description": "आपूर्तिकर्ता के इनवॉइस की फोटो या PDF अपलोड करें — निकाला गया डेटा हमेशा आपकी समीक्षा के लिए फॉर्म को पहले से भर देता है।",
+        "comingSoonBadge": "जल्द आ रहा है",
+        "comingSoonTooltip": "इनवॉइस स्कैन जल्द आ रहा है — डॉक्यूमेंट-AI प्रोवाइडर के चुनाव का इंतज़ार है।"
+      }
+    },
+    "form": {
+      "loadError": "लोड नहीं हो सका",
+      "saveError": "सेव नहीं हो सका। कृपया फिर से कोशिश करें।",
+      "invoiceNumber": "इनवॉइस नंबर"
+    },
+    "scan": {
+      "uploadPrompt": "आपूर्तिकर्ता के इनवॉइस की फोटो या PDF अपलोड करें",
+      "uploadAction": "फ़ाइल चुनें",
+      "processing": "इनवॉइस पढ़ा जा रहा है…",
+      "reviewHint": "पुष्टि करने से पहले नीचे दिए गए हर फ़ील्ड की समीक्षा और सुधार करें — पुष्टि करने तक कुछ भी सेव नहीं होता।",
+      "confirmAction": "पुष्टि करें और GRN बनाएं",
+      "timeoutError": "स्कैन में अपेक्षा से अधिक समय लग रहा है। कृपया फिर से कोशिश करें।",
+      "failedError": "इस इनवॉइस को प्रोसेस नहीं किया जा सका। कृपया फिर से कोशिश करें या इसके बजाय सीधी प्रविष्टि का उपयोग करें।",
+      "failedTitle": "यह इनवॉइस पढ़ा नहीं जा सका",
+      "retryAction": "दूसरी फ़ाइल आज़माएं",
+      "supplierUnmatched": "\"{{guess}}\" को किसी दर्ज आपूर्तिकर्ता से भरोसे के साथ मिलाया नहीं जा सका — कृपया एक चुनें।"
+    },
+    "poForm": {
+      "pickerTitle": "एक खरीद आदेश चुनें",
+      "notReceivableError": "इस खरीद आदेश के विरुद्ध अब प्राप्ति दर्ज नहीं की जा सकती।",
+      "pickerEmpty": {
+        "title": "कोई खरीद आदेश प्राप्ति के लिए तैयार नहीं है",
+        "description": "GRN बनाने से पहले PO का स्वीकृत, आपूर्तिकर्ता को भेजा गया, या आंशिक रूप से प्राप्त होना आवश्यक है।"
+      }
+    },
+    "lines": {
+      "item": "आइटम",
+      "orderedQty": "ऑर्डर किया गया",
+      "receivedQty": "प्राप्त मात्रा",
+      "actualPrice": "मूल्य"
+    },
+    "detail": {
+      "title": "GRN #{{id}}",
+      "loadError": "यह GRN लोड नहीं हो सका",
+      "againstPo": "PO के विरुद्ध",
+      "direct": "सीधा",
+      "varianceFlagged": "अंतर"
+    }
+  },
+  "documents": {
+    "print": "प्रिंट करें",
+    "email": {
+      "action": "ईमेल",
+      "title": "ईमेल से भेजें",
+      "to": "प्रति",
+      "cc": "Cc",
+      "ccPlaceholder": "अल्पविराम से अलग किए गए ईमेल पते",
+      "subject": "विषय",
+      "message": "संदेश",
+      "send": "भेजें",
+      "sending": "भेजा जा रहा है…",
+      "confirmSendAnyway": "फिर भी भेजें",
+      "draftWarning": "यह खरीद आदेश अभी स्वीकृत नहीं हुआ है — क्या फिर भी भेजें?",
+      "sendError": "भेजा नहीं जा सका। कृपया फिर से कोशिश करें।",
+      "lastSent": "अंतिम बार भेजा गया: {{date}} को {{recipient}}",
+      "poDefaultSubject": "खरीद आदेश #{{id}}",
+      "poDefaultMessage": "हमारा खरीद आदेश संलग्न है। कृपया प्राप्ति की पुष्टि करें।",
+      "grnDefaultSubject": "माल प्राप्ति नोट #{{id}}",
+      "grnDefaultMessage": "आपके रिकॉर्ड के लिए माल प्राप्ति नोट संलग्न है।"
     }
   }
 }

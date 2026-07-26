@@ -1,7 +1,18 @@
 import type { ComponentType } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, ClipboardList, Coins, LayoutDashboard, Package, Palette, Percent, Truck, Users } from 'lucide-react';
+import {
+  BarChart3,
+  ClipboardList,
+  Coins,
+  FileText,
+  LayoutDashboard,
+  Package,
+  Palette,
+  Percent,
+  Truck,
+  Users,
+} from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 interface NavItem {
@@ -31,7 +42,11 @@ export const navItems: NavItem[] = [
   // (base-currency change: CHAIN_OWNER only; add rate: CHAIN_OWNER/
   // PROPERTY_MANAGER), same read-vs-mutate split as Tax Configuration.
   { labelKey: 'currency', icon: Coins, to: '/currency' },
-  { labelKey: 'suppliers', icon: Truck },
+  // FR-03's Supplier Management — now built.
+  { labelKey: 'suppliers', icon: Truck, to: '/suppliers' },
+  // FR-04's Purchase Orders and GRN — both now built.
+  { labelKey: 'purchaseOrders', icon: FileText, to: '/purchase-orders' },
+  { labelKey: 'grn', icon: ClipboardList, to: '/grn' },
   { labelKey: 'reports', icon: BarChart3 },
   { labelKey: 'users', icon: Users },
   { labelKey: 'styleguide', icon: Palette, to: '/styleguide' },

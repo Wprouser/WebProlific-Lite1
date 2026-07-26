@@ -27,6 +27,8 @@
     "taxes": "الضرائب",
     "currency": "العملة",
     "suppliers": "الموردون",
+    "purchaseOrders": "أوامر الشراء",
+    "grn": "إيصال الاستلام",
     "reports": "التقارير",
     "users": "المستخدمون",
     "styleguide": "دليل التصميم",
@@ -500,6 +502,275 @@
       "saving": "جارٍ الحفظ…",
       "saveError": "تعذر الحفظ. يرجى المحاولة مرة أخرى.",
       "permissionError": "ليس لديك صلاحية لإجراء هذا التغيير."
+    }
+  },
+  "suppliers": {
+    "title": "الموردون",
+    "subtitle": "إدارة الموردين الذين يشتري منهم منفذك",
+    "loadError": "تعذر تحميل الموردين",
+    "newPo": "أمر شراء جديد",
+    "addSupplier": "إضافة مورد",
+    "searchPlaceholder": "البحث بالاسم أو الرمز…",
+    "filters": {
+      "allStatus": "كل الحالات",
+      "active": "نشط",
+      "inactive": "غير نشط"
+    },
+    "table": {
+      "name": "الاسم",
+      "supplierCode": "الرمز",
+      "contact": "التواصل",
+      "preferredCurrency": "العملة المفضلة",
+      "taxRegistration": "التسجيل الضريبي",
+      "status": "الحالة"
+    },
+    "status": {
+      "active": "نشط",
+      "inactive": "غير نشط"
+    },
+    "edit": "تعديل",
+    "deactivate": "إلغاء التفعيل",
+    "deactivating": "جارٍ إلغاء التفعيل…",
+    "confirmDeactivate": "هل تريد إلغاء تفعيل \"{{name}}\"؟ لن يظهر بعد الآن كخيار لمشتريات جديدة.",
+    "confirmYes": "نعم، إلغاء التفعيل",
+    "cancel": "إلغاء",
+    "empty": {
+      "title": "لا يوجد موردون بعد",
+      "description": "أضف أول مورد لك لبدء تسجيل أوامر الشراء وإيصالات الاستلام معه."
+    },
+    "form": {
+      "createTitle": "إضافة مورد",
+      "editTitle": "تعديل المورد",
+      "sectionGeneral": "عام",
+      "sectionAddress": "العنوان",
+      "sectionCurrencyTax": "العملة والضريبة",
+      "sectionPaymentBank": "الدفع والبنك",
+      "name": "الاسم",
+      "supplierCode": "رمز المورد",
+      "supplierCodePlaceholder": "مثال: SUP-001",
+      "contactPerson": "الشخص المسؤول",
+      "phone": "الهاتف",
+      "email": "البريد الإلكتروني",
+      "addressLine": "العنوان",
+      "city": "المدينة",
+      "stateOrProvince": "المنطقة / المحافظة",
+      "stateOrProvincePlaceholder": "مثال: الرياض",
+      "countryCode": "رمز الدولة",
+      "countryCodePlaceholder": "مثال: SA",
+      "postalCode": "الرمز البريدي",
+      "preferredCurrency": "العملة المفضلة",
+      "preferredCurrencyPlaceholder": "بدون",
+      "taxRegistrationType": "نوع التسجيل الضريبي",
+      "taxRegistrationTypePlaceholder": "مثال: GSTIN، رقم تسجيل ضريبة القيمة المضافة، TRN",
+      "taxRegistrationNumber": "رقم التسجيل الضريبي",
+      "paymentTerms": "شروط الدفع",
+      "paymentTermsPlaceholder": "مثال: NET_30",
+      "leadTimeDays": "مدة التوريد (أيام)",
+      "bankAccountName": "اسم الحساب البنكي",
+      "bankAccountNumber": "رقم الحساب البنكي",
+      "bankIfscOrSwift": "IFSC / SWIFT",
+      "activeToggle": "نشط",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "saveError": "تعذر الحفظ. يرجى المحاولة مرة أخرى.",
+      "permissionError": "ليس لديك صلاحية لإجراء هذا التغيير."
+    },
+    "detail": {
+      "back": "العودة إلى الموردين",
+      "loadError": "تعذر تحميل هذا المورد",
+      "notSet": "غير محدد",
+      "performance": "الأداء",
+      "totalGrns": "إجمالي إيصالات الاستلام",
+      "onTimeRate": "معدل الالتزام بالموعد",
+      "priceConsistency": "ثبات الأسعار",
+      "notYetAvailable": "غير متاح بعد",
+      "priceHistory": "سجل الأسعار",
+      "priceHistoryEmpty": {
+        "title": "لا يوجد سجل أسعار بعد",
+        "description": "يُسجَّل سجل الأسعار تلقائيًا بمجرد إنهاء إيصال استلام مع هذا المورد."
+      }
+    }
+  },
+  "purchaseOrders": {
+    "title": "أوامر الشراء",
+    "subtitle": "إنشاء أوامر الشراء واعتمادها وتتبعها مع الموردين",
+    "addNew": "أمر شراء جديد",
+    "back": "العودة إلى أوامر الشراء",
+    "edit": "تعديل",
+    "status": {
+      "DRAFT": "مسودة",
+      "PENDING_APPROVAL": "بانتظار الاعتماد",
+      "APPROVED": "معتمد",
+      "SENT_TO_SUPPLIER": "أُرسل إلى المورد",
+      "PARTIALLY_RECEIVED": "استُلم جزئيًا",
+      "FULLY_RECEIVED": "استُلم بالكامل",
+      "CLOSED": "مغلق",
+      "REJECTED": "مرفوض",
+      "CANCELLED": "ملغى"
+    },
+    "list": {
+      "allStatuses": "جميع الحالات",
+      "allSuppliers": "جميع الموردين",
+      "supplier": "المورد",
+      "status": "الحالة",
+      "total": "الإجمالي",
+      "created": "تاريخ الإنشاء",
+      "loadError": "تعذر تحميل أوامر الشراء",
+      "empty": {
+        "title": "لا توجد أوامر شراء بعد",
+        "description": "أنشئ أول أمر شراء لبدء طلب المخزون من أحد الموردين.",
+        "action": "أمر شراء جديد"
+      }
+    },
+    "actions": {
+      "submit": "إرسال للاعتماد",
+      "approve": "اعتماد",
+      "reject": "رفض",
+      "rejectReason": "سبب الرفض",
+      "confirmReject": "تأكيد الرفض",
+      "send": "إرسال إلى المورد",
+      "close": "إغلاق الأمر",
+      "createGrn": "إنشاء إيصال استلام"
+    },
+    "detail": {
+      "title": "أمر الشراء رقم {{id}}",
+      "loadError": "تعذر تحميل أمر الشراء هذا",
+      "actionError": "تعذر إتمام هذا الإجراء. يرجى المحاولة مرة أخرى.",
+      "supplier": "المورد",
+      "expectedDelivery": "تاريخ التسليم المتوقع"
+    },
+    "form": {
+      "createTitle": "أمر شراء جديد",
+      "editTitle": "تعديل أمر الشراء",
+      "loadError": "تعذر تحميل أمر الشراء هذا",
+      "saveError": "تعذر الحفظ. يرجى المحاولة مرة أخرى.",
+      "notDraftError": "هذا الأمر لم يعد مسودة ولا يمكن تعديله.",
+      "supplier": "المورد",
+      "supplierPlaceholder": "اختر موردًا",
+      "currency": "العملة",
+      "exchangeRate": "سعر الصرف ({{from}} ← {{to}})",
+      "exchangeRateHint": "تمت التعبئة تلقائيًا من أحدث سعر مسجل — لا يزال قابلاً للتعديل لهذا الأمر.",
+      "expectedDeliveryDate": "تاريخ التسليم المتوقع",
+      "taxInclusiveToggle": "شامل الضريبة",
+      "taxInclusiveHint": "عند التفعيل، تُعامل أسعار البنود على أنها شاملة للضريبة بالفعل.",
+      "discount": "خصم",
+      "otherCharges": "رسوم أخرى",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…"
+    },
+    "lines": {
+      "item": "الصنف",
+      "itemPlaceholder": "اختر صنفًا",
+      "orderedQty": "الكمية",
+      "expectedPrice": "السعر",
+      "taxRate": "الضريبة",
+      "noTax": "بدون ضريبة",
+      "lineTotal": "إجمالي البند",
+      "currentStock": "المخزون الحالي: {{stock}} {{unit}}",
+      "addLine": "إضافة بند",
+      "removeLine": "إزالة البند"
+    },
+    "totals": {
+      "net": "الصافي",
+      "discount": "خصم",
+      "otherCharges": "رسوم أخرى",
+      "tax": "الضريبة",
+      "gross": "الإجمالي"
+    }
+  },
+  "grn": {
+    "title": "إيصالات استلام البضائع",
+    "subtitle": "سجّل البضائع المستلمة من الموردين، بأمر شراء أو بدونه",
+    "addNew": "إيصال استلام جديد",
+    "back": "العودة إلى إيصالات الاستلام",
+    "list": {
+      "loadError": "تعذر تحميل إيصالات الاستلام",
+      "source": "المصدر",
+      "receivedAt": "تاريخ الاستلام",
+      "empty": {
+        "title": "لا توجد إيصالات استلام بعد",
+        "description": "سجّل أول إيصال استلام بضائع مقابل أمر شراء، أو مباشرةً، أو عبر مسح فاتورة.",
+        "action": "إيصال استلام جديد"
+      }
+    },
+    "new": {
+      "title": "إيصال استلام جديد",
+      "againstPo": {
+        "title": "مقابل أمر شراء",
+        "description": "اختر أمر شراء مفتوحًا وستُملأ بنوده تلقائيًا — اقبل أو عدّل الكمية والسعر والضريبة."
+      },
+      "direct": {
+        "title": "إدخال مباشر (بدون أمر شراء)",
+        "description": "أدخل المورد والبنود يدويًا — لا تُطبَّق مقارنة الكمية المطلوبة."
+      },
+      "scan": {
+        "title": "مسح الفاتورة",
+        "description": "ارفع صورة أو ملف PDF لفاتورة المورد — تُستخدم البيانات المستخرجة لتعبئة النموذج دائمًا لمراجعتك.",
+        "comingSoonBadge": "قريبًا",
+        "comingSoonTooltip": "ميزة مسح الفاتورة قريبًا — بانتظار اختيار مزود الذكاء الاصطناعي للمستندات."
+      }
+    },
+    "form": {
+      "loadError": "تعذر التحميل",
+      "saveError": "تعذر الحفظ. يرجى المحاولة مرة أخرى.",
+      "invoiceNumber": "رقم الفاتورة"
+    },
+    "scan": {
+      "uploadPrompt": "ارفع صورة أو ملف PDF لفاتورة المورد",
+      "uploadAction": "اختر ملفًا",
+      "processing": "جارٍ قراءة الفاتورة…",
+      "reviewHint": "راجع وصحّح كل حقل أدناه قبل التأكيد — لا يُحفظ شيء حتى تؤكد.",
+      "confirmAction": "تأكيد وإنشاء إيصال استلام",
+      "timeoutError": "استغرقت عملية المسح وقتًا أطول من المتوقع. يرجى المحاولة مرة أخرى.",
+      "failedError": "تعذر معالجة هذه الفاتورة. يرجى المحاولة مرة أخرى أو استخدام الإدخال المباشر بدلاً من ذلك.",
+      "failedTitle": "تعذر قراءة هذه الفاتورة",
+      "retryAction": "جرّب ملفًا آخر",
+      "supplierUnmatched": "تعذر مطابقة \"{{guess}}\" بثقة مع مورد مسجل — يرجى اختيار واحد."
+    },
+    "poForm": {
+      "pickerTitle": "اختر أمر شراء",
+      "notReceivableError": "لم يعد بالإمكان الاستلام مقابل أمر الشراء هذا.",
+      "pickerEmpty": {
+        "title": "لا توجد أوامر شراء جاهزة للاستلام",
+        "description": "يجب أن يكون أمر الشراء معتمدًا أو مرسلًا إلى المورد أو مستلمًا جزئيًا قبل إنشاء إيصال استلام مقابله."
+      }
+    },
+    "lines": {
+      "item": "الصنف",
+      "orderedQty": "المطلوب",
+      "receivedQty": "الكمية المستلمة",
+      "actualPrice": "السعر"
+    },
+    "detail": {
+      "title": "إيصال الاستلام رقم {{id}}",
+      "loadError": "تعذر تحميل إيصال الاستلام هذا",
+      "againstPo": "مقابل أمر شراء",
+      "direct": "مباشر",
+      "varianceFlagged": "تفاوت"
+    }
+  },
+  "documents": {
+    "print": "طباعة",
+    "email": {
+      "action": "بريد إلكتروني",
+      "title": "إرسال عبر البريد الإلكتروني",
+      "to": "إلى",
+      "cc": "نسخة",
+      "ccPlaceholder": "عناوين بريد إلكتروني مفصولة بفواصل",
+      "subject": "الموضوع",
+      "message": "الرسالة",
+      "send": "إرسال",
+      "sending": "جارٍ الإرسال…",
+      "confirmSendAnyway": "إرسال على أي حال",
+      "draftWarning": "أمر الشراء هذا لم يُعتمد بعد — هل تريد الإرسال على أي حال؟",
+      "sendError": "تعذر الإرسال. يرجى المحاولة مرة أخرى.",
+      "lastSent": "آخر إرسال: {{date}} إلى {{recipient}}",
+      "poDefaultSubject": "أمر الشراء رقم {{id}}",
+      "poDefaultMessage": "مرفق أمر الشراء الخاص بنا. يرجى تأكيد الاستلام.",
+      "grnDefaultSubject": "إيصال الاستلام رقم {{id}}",
+      "grnDefaultMessage": "مرفق إيصال استلام البضائع لسجلاتكم."
     }
   }
 }

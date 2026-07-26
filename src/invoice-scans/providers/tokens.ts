@@ -1,0 +1,1 @@
+export const INVOICE_OCR_PROVIDER = Symbol('INVOICE_OCR_PROVIDER');

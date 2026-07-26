@@ -27,6 +27,8 @@
     "taxes": "ٹیکسز",
     "currency": "کرنسی",
     "suppliers": "سپلائرز",
+    "purchaseOrders": "خریداری آرڈرز",
+    "grn": "جی آر این",
     "reports": "رپورٹس",
     "users": "صارفین",
     "styleguide": "اسٹائل گائیڈ",
@@ -500,6 +502,275 @@
       "saving": "محفوظ ہو رہا ہے…",
       "saveError": "محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
       "permissionError": "آپ کو یہ تبدیلی کرنے کی اجازت نہیں ہے۔"
+    }
+  },
+  "suppliers": {
+    "title": "سپلائرز",
+    "subtitle": "ان سپلائرز کا انتظام کریں جن سے آپ کا آؤٹ لیٹ خریداری کرتا ہے",
+    "loadError": "سپلائرز لوڈ نہیں ہو سکے",
+    "newPo": "نیا خریداری آرڈر",
+    "addSupplier": "سپلائر شامل کریں",
+    "searchPlaceholder": "نام یا کوڈ سے تلاش کریں…",
+    "filters": {
+      "allStatus": "تمام حیثیتیں",
+      "active": "فعال",
+      "inactive": "غیر فعال"
+    },
+    "table": {
+      "name": "نام",
+      "supplierCode": "کوڈ",
+      "contact": "رابطہ",
+      "preferredCurrency": "پسندیدہ کرنسی",
+      "taxRegistration": "ٹیکس رجسٹریشن",
+      "status": "حیثیت"
+    },
+    "status": {
+      "active": "فعال",
+      "inactive": "غیر فعال"
+    },
+    "edit": "ترمیم کریں",
+    "deactivate": "غیر فعال کریں",
+    "deactivating": "غیر فعال ہو رہا ہے…",
+    "confirmDeactivate": "کیا \"{{name}}\" کو غیر فعال کرنا ہے؟ یہ نئی خریداریوں کے لیے اب دستیاب نہیں ہوگا۔",
+    "confirmYes": "ہاں، غیر فعال کریں",
+    "cancel": "منسوخ کریں",
+    "empty": {
+      "title": "ابھی تک کوئی سپلائر نہیں",
+      "description": "خریداری آرڈرز اور GRN درج کرنا شروع کرنے کے لیے اپنا پہلا سپلائر شامل کریں۔"
+    },
+    "form": {
+      "createTitle": "سپلائر شامل کریں",
+      "editTitle": "سپلائر میں ترمیم کریں",
+      "sectionGeneral": "عمومی",
+      "sectionAddress": "پتہ",
+      "sectionCurrencyTax": "کرنسی اور ٹیکس",
+      "sectionPaymentBank": "ادائیگی اور بینک",
+      "name": "نام",
+      "supplierCode": "سپلائر کوڈ",
+      "supplierCodePlaceholder": "مثلاً SUP-001",
+      "contactPerson": "رابطہ کار",
+      "phone": "فون",
+      "email": "ای میل",
+      "addressLine": "پتہ",
+      "city": "شہر",
+      "stateOrProvince": "ریاست / صوبہ",
+      "stateOrProvincePlaceholder": "مثلاً ریاض",
+      "countryCode": "ملکی کوڈ",
+      "countryCodePlaceholder": "مثلاً SA",
+      "postalCode": "پوسٹل کوڈ",
+      "preferredCurrency": "پسندیدہ کرنسی",
+      "preferredCurrencyPlaceholder": "کوئی نہیں",
+      "taxRegistrationType": "ٹیکس رجسٹریشن کی قسم",
+      "taxRegistrationTypePlaceholder": "مثلاً GSTIN، VAT رجسٹریشن نمبر، TRN",
+      "taxRegistrationNumber": "ٹیکس رجسٹریشن نمبر",
+      "paymentTerms": "ادائیگی کی شرائط",
+      "paymentTermsPlaceholder": "مثلاً NET_30",
+      "leadTimeDays": "لیڈ ٹائم (دن)",
+      "bankAccountName": "بینک اکاؤنٹ کا نام",
+      "bankAccountNumber": "بینک اکاؤنٹ نمبر",
+      "bankIfscOrSwift": "IFSC / SWIFT",
+      "activeToggle": "فعال",
+      "cancel": "منسوخ کریں",
+      "save": "محفوظ کریں",
+      "saving": "محفوظ ہو رہا ہے…",
+      "saveError": "محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+      "permissionError": "آپ کو یہ تبدیلی کرنے کی اجازت نہیں ہے۔"
+    },
+    "detail": {
+      "back": "سپلائرز پر واپس جائیں",
+      "loadError": "یہ سپلائر لوڈ نہیں ہو سکا",
+      "notSet": "مقرر نہیں",
+      "performance": "کارکردگی",
+      "totalGrns": "کل GRN",
+      "onTimeRate": "بروقت شرح",
+      "priceConsistency": "قیمت کا استحکام",
+      "notYetAvailable": "ابھی دستیاب نہیں",
+      "priceHistory": "قیمت کی تاریخ",
+      "priceHistoryEmpty": {
+        "title": "ابھی تک قیمت کی کوئی تاریخ نہیں",
+        "description": "اس سپلائر کے خلاف GRN مکمل ہوتے ہی قیمت کی تاریخ خودکار طور پر درج ہو جاتی ہے۔"
+      }
+    }
+  },
+  "purchaseOrders": {
+    "title": "خریداری آرڈرز",
+    "subtitle": "سپلائرز کو بھیجے جانے والے خریداری آرڈرز بنائیں، منظور کریں اور ٹریک کریں",
+    "addNew": "نیا خریداری آرڈر",
+    "back": "خریداری آرڈرز پر واپس جائیں",
+    "edit": "ترمیم کریں",
+    "status": {
+      "DRAFT": "مسودہ",
+      "PENDING_APPROVAL": "منظوری کا منتظر",
+      "APPROVED": "منظور شدہ",
+      "SENT_TO_SUPPLIER": "سپلائر کو بھیج دیا گیا",
+      "PARTIALLY_RECEIVED": "جزوی طور پر موصول",
+      "FULLY_RECEIVED": "مکمل طور پر موصول",
+      "CLOSED": "بند",
+      "REJECTED": "مسترد",
+      "CANCELLED": "منسوخ"
+    },
+    "list": {
+      "allStatuses": "تمام حالتیں",
+      "allSuppliers": "تمام سپلائرز",
+      "supplier": "سپلائر",
+      "status": "حالت",
+      "total": "کل",
+      "created": "تاریخ تخلیق",
+      "loadError": "خریداری آرڈرز لوڈ نہیں ہو سکے",
+      "empty": {
+        "title": "ابھی تک کوئی خریداری آرڈر نہیں",
+        "description": "کسی سپلائر سے اسٹاک آرڈر کرنا شروع کرنے کے لیے اپنا پہلا خریداری آرڈر بنائیں۔",
+        "action": "نیا خریداری آرڈر"
+      }
+    },
+    "actions": {
+      "submit": "منظوری کے لیے بھیجیں",
+      "approve": "منظور کریں",
+      "reject": "مسترد کریں",
+      "rejectReason": "مسترد کرنے کی وجہ",
+      "confirmReject": "مسترد کرنے کی تصدیق کریں",
+      "send": "سپلائر کو بھیجیں",
+      "close": "آرڈر بند کریں",
+      "createGrn": "جی آر این بنائیں"
+    },
+    "detail": {
+      "title": "خریداری آرڈر #{{id}}",
+      "loadError": "یہ خریداری آرڈر لوڈ نہیں ہو سکا",
+      "actionError": "یہ کارروائی مکمل نہیں ہو سکی۔ براہ کرم دوبارہ کوشش کریں۔",
+      "supplier": "سپلائر",
+      "expectedDelivery": "متوقع ترسیل"
+    },
+    "form": {
+      "createTitle": "نیا خریداری آرڈر",
+      "editTitle": "خریداری آرڈر میں ترمیم کریں",
+      "loadError": "یہ خریداری آرڈر لوڈ نہیں ہو سکا",
+      "saveError": "محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+      "notDraftError": "یہ خریداری آرڈر اب مسودہ نہیں رہا اور اس میں ترمیم نہیں کی جا سکتی۔",
+      "supplier": "سپلائر",
+      "supplierPlaceholder": "ایک سپلائر منتخب کریں",
+      "currency": "کرنسی",
+      "exchangeRate": "زرمبادلہ کی شرح ({{from}} → {{to}})",
+      "exchangeRateHint": "فائل پر موجود تازہ ترین شرح سے خودکار طور پر بھرا گیا — اس آرڈر کے لیے اب بھی قابل ترمیم۔",
+      "expectedDeliveryDate": "متوقع تاریخ ترسیل",
+      "taxInclusiveToggle": "ٹیکس شامل",
+      "taxInclusiveHint": "فعال ہونے پر، لائن کی قیمتوں کو پہلے سے ٹیکس شامل تصور کیا جاتا ہے۔",
+      "discount": "رعایت",
+      "otherCharges": "دیگر اخراجات",
+      "cancel": "منسوخ کریں",
+      "save": "محفوظ کریں",
+      "saving": "محفوظ ہو رہا ہے…"
+    },
+    "lines": {
+      "item": "شے",
+      "itemPlaceholder": "ایک شے منتخب کریں",
+      "orderedQty": "مقدار",
+      "expectedPrice": "قیمت",
+      "taxRate": "ٹیکس",
+      "noTax": "کوئی ٹیکس نہیں",
+      "lineTotal": "لائن ٹوٹل",
+      "currentStock": "موجودہ اسٹاک: {{stock}} {{unit}}",
+      "addLine": "لائن شامل کریں",
+      "removeLine": "لائن ہٹائیں"
+    },
+    "totals": {
+      "net": "خالص",
+      "discount": "رعایت",
+      "otherCharges": "دیگر اخراجات",
+      "tax": "ٹیکس",
+      "gross": "مجموعی"
+    }
+  },
+  "grn": {
+    "title": "مال وصولی نوٹس (GRN)",
+    "subtitle": "سپلائرز سے موصول ہونے والا اسٹاک درج کریں، خریداری آرڈر کے ساتھ یا اس کے بغیر",
+    "addNew": "نیا جی آر این",
+    "back": "جی آر اینز پر واپس جائیں",
+    "list": {
+      "loadError": "جی آر اینز لوڈ نہیں ہو سکے",
+      "source": "ماخذ",
+      "receivedAt": "وصولی کی تاریخ",
+      "empty": {
+        "title": "ابھی تک کوئی جی آر این نہیں",
+        "description": "کسی خریداری آرڈر کے مقابل، براہ راست، یا انوائس اسکین کر کے اپنا پہلا مال وصولی نوٹ درج کریں۔",
+        "action": "نیا جی آر این"
+      }
+    },
+    "new": {
+      "title": "نیا جی آر این",
+      "againstPo": {
+        "title": "خریداری آرڈر کے مقابل",
+        "description": "ایک کھلا PO منتخب کریں اور اس کی لائنیں خودکار طور پر بھر جاتی ہیں — مقدار، قیمت اور ٹیکس قبول کریں یا تبدیل کریں۔"
+      },
+      "direct": {
+        "title": "براہ راست اندراج (بغیر PO کے)",
+        "description": "سپلائر اور لائن آئٹمز دستی طور پر درج کریں — کوئی آرڈر شدہ مقدار کا موازنہ لاگو نہیں ہوتا۔"
+      },
+      "scan": {
+        "title": "انوائس اسکین کریں",
+        "description": "سپلائر کے انوائس کی تصویر یا PDF اپلوڈ کریں — نکالا گیا ڈیٹا ہمیشہ آپ کے جائزے کے لیے فارم کو پہلے سے بھر دیتا ہے۔",
+        "comingSoonBadge": "جلد آ رہا ہے",
+        "comingSoonTooltip": "انوائس اسکین جلد آ رہا ہے — دستاویز-AI فراہم کنندہ کے فیصلے کا انتظار ہے۔"
+      }
+    },
+    "form": {
+      "loadError": "لوڈ نہیں ہو سکا",
+      "saveError": "محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+      "invoiceNumber": "انوائس نمبر"
+    },
+    "scan": {
+      "uploadPrompt": "سپلائر کے انوائس کی تصویر یا PDF اپلوڈ کریں",
+      "uploadAction": "فائل منتخب کریں",
+      "processing": "انوائس پڑھی جا رہی ہے…",
+      "reviewHint": "تصدیق کرنے سے پہلے نیچے دیے گئے ہر فیلڈ کا جائزہ لیں اور درست کریں — تصدیق تک کچھ بھی محفوظ نہیں ہوتا۔",
+      "confirmAction": "تصدیق کریں اور جی آر این بنائیں",
+      "timeoutError": "اسکین میں توقع سے زیادہ وقت لگ رہا ہے۔ براہ کرم دوبارہ کوشش کریں۔",
+      "failedError": "یہ انوائس پروسیس نہیں ہو سکی۔ براہ کرم دوبارہ کوشش کریں یا اس کے بجائے براہ راست اندراج استعمال کریں۔",
+      "failedTitle": "یہ انوائس پڑھی نہیں جا سکی",
+      "retryAction": "دوسری فائل آزمائیں",
+      "supplierUnmatched": "\"{{guess}}\" کو کسی درج شدہ سپلائر سے یقین کے ساتھ نہیں ملایا جا سکا — براہ کرم ایک منتخب کریں۔"
+    },
+    "poForm": {
+      "pickerTitle": "ایک خریداری آرڈر منتخب کریں",
+      "notReceivableError": "اس خریداری آرڈر کے مقابل اب وصولی درج نہیں کی جا سکتی۔",
+      "pickerEmpty": {
+        "title": "کوئی خریداری آرڈر وصولی کے لیے تیار نہیں",
+        "description": "جی آر این بنانے سے پہلے PO کا منظور شدہ، سپلائر کو بھیجا گیا، یا جزوی طور پر موصول ہونا ضروری ہے۔"
+      }
+    },
+    "lines": {
+      "item": "شے",
+      "orderedQty": "آرڈر شدہ",
+      "receivedQty": "موصولہ مقدار",
+      "actualPrice": "قیمت"
+    },
+    "detail": {
+      "title": "جی آر این #{{id}}",
+      "loadError": "یہ جی آر این لوڈ نہیں ہو سکا",
+      "againstPo": "PO کے مقابل",
+      "direct": "براہ راست",
+      "varianceFlagged": "فرق"
+    }
+  },
+  "documents": {
+    "print": "پرنٹ کریں",
+    "email": {
+      "action": "ای میل",
+      "title": "ای میل کے ذریعے بھیجیں",
+      "to": "بنام",
+      "cc": "Cc",
+      "ccPlaceholder": "کوما سے الگ کیے گئے ای میل پتے",
+      "subject": "موضوع",
+      "message": "پیغام",
+      "send": "بھیجیں",
+      "sending": "بھیجا جا رہا ہے…",
+      "confirmSendAnyway": "پھر بھی بھیجیں",
+      "draftWarning": "یہ خریداری آرڈر ابھی منظور نہیں ہوا — کیا پھر بھی بھیجیں؟",
+      "sendError": "بھیجا نہیں جا سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+      "lastSent": "آخری بار بھیجا گیا: {{date}} کو {{recipient}}",
+      "poDefaultSubject": "خریداری آرڈر #{{id}}",
+      "poDefaultMessage": "ہمارا خریداری آرڈر منسلک ہے۔ براہ کرم وصولی کی تصدیق کریں۔",
+      "grnDefaultSubject": "مال وصولی نوٹ #{{id}}",
+      "grnDefaultMessage": "آپ کے ریکارڈ کے لیے مال وصولی نوٹ منسلک ہے۔"
     }
   }
 }

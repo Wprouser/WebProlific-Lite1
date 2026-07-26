@@ -34,4 +34,18 @@ describe('nav-items', () => {
     const link = screen.getByRole('link', { name: 'Currency' });
     expect(link).toHaveAttribute('href', '/currency');
   });
+
+  it('AC: Suppliers is now a real, enabled nav entry (no longer the "Soon" stub)', () => {
+    const suppliersItem = navItems.find((item) => item.labelKey === 'suppliers');
+    expect(suppliersItem).toBeDefined();
+    expect(suppliersItem?.to).toBe('/suppliers');
+
+    render(
+      <MemoryRouter>
+        <NavList />
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole('link', { name: 'Suppliers' });
+    expect(link).toHaveAttribute('href', '/suppliers');
+  });
 });

@@ -14,5 +14,10 @@ import { PrismaTaxRateRepository } from './repositories/prisma/prisma-tax-rate.r
     DefaultTaxRatesListener,
     { provide: TAX_RATE_REPOSITORY, useClass: PrismaTaxRateRepository },
   ],
+  // FR-04: PurchaseOrdersModule/GrnModule need this to validate/snapshot a
+  // line's taxRateId without going through TaxRatesService's own
+  // request-gated access check (the PO/GRN's own outlet check already
+  // covers authorization; this is just a data lookup).
+  exports: [TAX_RATE_REPOSITORY],
 })
 export class TaxRatesModule {}

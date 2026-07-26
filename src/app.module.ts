@@ -13,6 +13,10 @@ import { StockTransactionsModule } from './stock-transactions/stock-transactions
 import { TaxRatesModule } from './tax-rates/tax-rates.module';
 import { CurrenciesModule } from './currencies/currencies.module';
 import { ExchangeRatesModule } from './exchange-rates/exchange-rates.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
+import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
+import { InvoiceScansModule } from './invoice-scans/invoice-scans.module';
+import { GrnModule } from './grn/grn.module';
 import { ScopeResolutionGuard } from './tenancy/guards/scope-resolution.guard';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './rbac/guards/roles.guard';
@@ -36,6 +40,10 @@ import { FieldRestrictionInterceptor } from './rbac/interceptors/field-restricti
     TaxRatesModule,
     CurrenciesModule,
     ExchangeRatesModule,
+    SuppliersModule,
+    PurchaseOrdersModule,
+    InvoiceScansModule,
+    GrnModule,
   ],
   providers: [
     // Order matters: JwtAuthGuard populates request.user, ScopeResolutionGuard

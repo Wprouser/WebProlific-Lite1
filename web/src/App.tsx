@@ -11,6 +11,17 @@ import { ItemDetail } from '@/routes/ItemDetail';
 import { StockTransactions } from '@/routes/StockTransactions';
 import { TaxRates } from '@/routes/TaxRates';
 import { CurrencySettings } from '@/routes/CurrencySettings';
+import { Suppliers } from '@/routes/Suppliers';
+import { SupplierDetail } from '@/routes/SupplierDetail';
+import { PurchaseOrders } from '@/routes/PurchaseOrders';
+import { PurchaseOrderForm } from '@/routes/PurchaseOrderForm';
+import { PurchaseOrderDetail } from '@/routes/PurchaseOrderDetail';
+import { GrnList } from '@/routes/GrnList';
+import { NewGrn } from '@/routes/NewGrn';
+import { DirectGrnForm } from '@/routes/DirectGrnForm';
+import { PoGrnForm } from '@/routes/PoGrnForm';
+import { ScanInvoiceGrnForm } from '@/routes/ScanInvoiceGrnForm';
+import { GrnDetail } from '@/routes/GrnDetail';
 import { getSession } from '@/lib/auth-store';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -49,6 +60,19 @@ export function App() {
             <Route path="/stock" element={<StockTransactions />} />
             <Route path="/tax-rates" element={<TaxRates />} />
             <Route path="/currency" element={<CurrencySettings />} />
+            <Route path="/suppliers" element={<Suppliers />} />
+            <Route path="/suppliers/:id" element={<SupplierDetail />} />
+            <Route path="/purchase-orders" element={<PurchaseOrders />} />
+            <Route path="/purchase-orders/new" element={<PurchaseOrderForm />} />
+            <Route path="/purchase-orders/:id/edit" element={<PurchaseOrderForm />} />
+            <Route path="/purchase-orders/:id" element={<PurchaseOrderDetail />} />
+            <Route path="/grn" element={<GrnList />} />
+            <Route path="/grn/new" element={<NewGrn />} />
+            <Route path="/grn/new/direct" element={<DirectGrnForm />} />
+            <Route path="/grn/new/scan" element={<ScanInvoiceGrnForm />} />
+            <Route path="/grn/new/po" element={<PoGrnForm />} />
+            <Route path="/grn/new/po/:poId" element={<PoGrnForm />} />
+            <Route path="/grn/:id" element={<GrnDetail />} />
             <Route path="/styleguide" element={<Styleguide />} />
             <Route path="/alerts/:type" element={<AlertList />} />
           </Route>
