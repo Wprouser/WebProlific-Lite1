@@ -217,8 +217,8 @@ describe('TaxRatesService', () => {
         isCompound: true,
         ratePercent: '18.00',
         components: [
-          { id: 'c1', taxRateId: 't1', componentName: 'CGST', componentRate: '9.00' },
-          { id: 'c2', taxRateId: 't1', componentName: 'SGST', componentRate: '9.00' },
+          { id: 'c1', taxRateId: 't1', componentName: 'CGST', componentRate: '9.00', sortOrder: 0 },
+          { id: 'c2', taxRateId: 't1', componentName: 'SGST', componentRate: '9.00', sortOrder: 1 },
         ],
       });
       const { service, taxRateRepository } = buildService(compoundExisting);
@@ -235,8 +235,8 @@ describe('TaxRatesService', () => {
         isCompound: true,
         ratePercent: '18.00',
         components: [
-          { id: 'c1', taxRateId: 't1', componentName: 'CGST', componentRate: '9.00' },
-          { id: 'c2', taxRateId: 't1', componentName: 'SGST', componentRate: '9.00' },
+          { id: 'c1', taxRateId: 't1', componentName: 'CGST', componentRate: '9.00', sortOrder: 0 },
+          { id: 'c2', taxRateId: 't1', componentName: 'SGST', componentRate: '9.00', sortOrder: 1 },
         ],
       });
       const { service } = buildService(compoundExisting);
@@ -304,8 +304,8 @@ describe('TaxRatesService', () => {
         isCompound: true,
         ratePercent: '18.00',
         components: [
-          { id: 'c1', taxRateId: 't1', componentName: 'CGST', componentRate: '9.00' },
-          { id: 'c2', taxRateId: 't1', componentName: 'SGST', componentRate: '9.00' },
+          { id: 'c1', taxRateId: 't1', componentName: 'CGST', componentRate: '9.00', sortOrder: 0 },
+          { id: 'c2', taxRateId: 't1', componentName: 'SGST', componentRate: '9.00', sortOrder: 1 },
         ],
       });
       const { service } = buildService(compound);

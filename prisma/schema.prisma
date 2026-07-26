@@ -399,6 +399,12 @@ model TaxRateComponent {
   // Components must sum to exactly the parent TaxRate.ratePercent —
   // enforced in TaxRatesService on create/update.
   componentRate Decimal @db.Decimal(5, 2)
+  // Explicit display order (the array position the caller sent them in,
+  // e.g. CGST before SGST) — set by PrismaTaxRateRepository at creation,
+  // never client-supplied. `id` is a random UUID, so sorting by it (the
+  // previous behavior) produced an arbitrary order instead of insertion
+  // order; same fix as ItemImage.sortOrder.
+  sortOrder     Int     @default(0)
 
   @@index([taxRateId])
 }

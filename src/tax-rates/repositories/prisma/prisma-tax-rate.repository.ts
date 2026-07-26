@@ -8,6 +8,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { TaxRate, TaxRateComponent } from '../../domain/tax-rate.entity';
 import {
   CreateTaxRateInput,
+  TaxRateComponentInput,
   TaxRateFilters,
   TaxRateRepository,
   UpdateTaxRateInput,
@@ -21,7 +22,19 @@ function componentToDomain(row: PrismaTaxRateComponent): TaxRateComponent {
     taxRateId: row.taxRateId,
     componentName: row.componentName,
     componentRate: row.componentRate.toFixed(2),
+    sortOrder: row.sortOrder,
   };
+}
+
+// sortOrder is the caller's array position, not client-supplied — this is
+// the one place it's assigned, on both create() and update()'s wholesale
+// replace, so it always matches the order the components were given in.
+function toComponentCreateData(components: TaxRateComponentInput[]) {
+  return components.map((c, index) => ({
+    componentName: c.componentName,
+    componentRate: c.componentRate,
+    sortOrder: index,
+  }));
 }
 
 function toDomain(row: PrismaTaxRateWithComponents): TaxRate {
@@ -42,7 +55,14 @@ function toDomain(row: PrismaTaxRateWithComponents): TaxRate {
   };
 }
 
-const INCLUDE_COMPONENTS = { components: { orderBy: { id: 'asc' as const } } };
+// sortOrder is the primary sort key (the caller's intended order, e.g.
+// CGST before SGST). `id` is only a tiebreaker for legacy rows migrated
+// with sortOrder defaulted to 0 — never the sole/primary sort key, since a
+// random UUID doesn't correlate with insertion order at all (the bug this
+// column exists to fix).
+const INCLUDE_COMPONENTS = {
+  components: { orderBy: [{ sortOrder: 'asc' as const }, { id: 'asc' as const }] },
+};
 
 @Injectable()
 export class PrismaTaxRateRepository implements TaxRateRepository {
@@ -54,7 +74,7 @@ export class PrismaTaxRateRepository implements TaxRateRepository {
       data: {
         ...rest,
         ...(components && {
-          components: { create: components.map((c) => ({ componentName: c.componentName, componentRate: c.componentRate })) },
+          components: { create: toComponentCreateData(components) },
         }),
       },
       include: INCLUDE_COMPONENTS,
@@ -82,9 +102,7 @@ export class PrismaTaxRateRepository implements TaxRateRepository {
         data: {
           ...rest,
           ...(components && {
-            components: {
-              create: components.map((c) => ({ componentName: c.componentName, componentRate: c.componentRate })),
-            },
+            components: { create: toComponentCreateData(components) },
           }),
         },
         include: INCLUDE_COMPONENTS,

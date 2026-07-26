@@ -23,6 +23,7 @@ function fixtureComponentRow(overrides: Record<string, unknown> = {}) {
     taxRateId: 't1',
     componentName: 'CGST',
     componentRate: { toFixed: () => '9.00' },
+    sortOrder: 0,
     ...overrides,
   };
 }
@@ -105,7 +106,9 @@ describe('PrismaTaxRateRepository', () => {
         fixtureRow({ isCompound: true, components: [fixtureComponentRow()] }),
       ]);
       const [row] = await repository.findScoped({ accessibleOutletIds: ['o1'] });
-      expect(row!.components).toEqual([{ id: 'c1', taxRateId: 't1', componentName: 'CGST', componentRate: '9.00' }]);
+      expect(row!.components).toEqual([
+        { id: 'c1', taxRateId: 't1', componentName: 'CGST', componentRate: '9.00', sortOrder: 0 },
+      ]);
     });
   });
 
@@ -115,7 +118,7 @@ describe('PrismaTaxRateRepository', () => {
       await repository.create({ outletId: 'o1', name: 'Zero-Rated', ratePercent: '0.00' });
       expect(create).toHaveBeenCalledWith({
         data: { outletId: 'o1', name: 'Zero-Rated', ratePercent: '0.00' },
-        include: { components: { orderBy: { id: 'asc' } } },
+        include: { components: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] } },
       });
     });
 
@@ -133,10 +136,27 @@ describe('PrismaTaxRateRepository', () => {
       });
       expect(create.mock.calls[0][0].data.components).toEqual({
         create: [
-          { componentName: 'CGST', componentRate: '9.00' },
-          { componentName: 'SGST', componentRate: '9.00' },
+          { componentName: 'CGST', componentRate: '9.00', sortOrder: 0 },
+          { componentName: 'SGST', componentRate: '9.00', sortOrder: 1 },
         ],
       });
+    });
+
+    it('AC: sortOrder always matches array position, never a random/derived value — the fix for a real flaky-order bug', async () => {
+      const { repository, create } = buildRepository();
+      await repository.create({
+        outletId: 'o1',
+        name: 'GST 18% (Inter-state then more)',
+        ratePercent: '27.00',
+        isCompound: true,
+        components: [
+          { componentName: 'IGST', componentRate: '9.00' },
+          { componentName: 'X', componentRate: '9.00' },
+          { componentName: 'Y', componentRate: '9.00' },
+        ],
+      });
+      const sent = create.mock.calls[0][0].data.components.create;
+      expect(sent.map((c: { sortOrder: number }) => c.sortOrder)).toEqual([0, 1, 2]);
     });
 
     it('serializes the created row the same way findScoped does', async () => {
@@ -174,7 +194,7 @@ describe('PrismaTaxRateRepository', () => {
       expect(update).toHaveBeenCalledWith({
         where: { id: 't1' },
         data: { isActive: false },
-        include: { components: { orderBy: { id: 'asc' } } },
+        include: { components: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] } },
       });
       // No components touched at all for a plain field update.
       expect(deleteMany).not.toHaveBeenCalled();
@@ -191,8 +211,8 @@ describe('PrismaTaxRateRepository', () => {
       expect(deleteMany).toHaveBeenCalledWith({ where: { taxRateId: 't1' } });
       expect(update.mock.calls[0][0].data.components).toEqual({
         create: [
-          { componentName: 'CGST', componentRate: '9.00' },
-          { componentName: 'SGST', componentRate: '9.00' },
+          { componentName: 'CGST', componentRate: '9.00', sortOrder: 0 },
+          { componentName: 'SGST', componentRate: '9.00', sortOrder: 1 },
         ],
       });
     });

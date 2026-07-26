@@ -3,6 +3,10 @@ export interface TaxRateComponent {
   taxRateId: string;
   componentName: string;
   componentRate: string; // Decimal serialized as string
+  // Explicit display order (array position at creation) — see the schema
+  // comment on TaxRateComponent.sortOrder for why this exists instead of
+  // sorting by id.
+  sortOrder: number;
 }
 
 export interface TaxRate {
