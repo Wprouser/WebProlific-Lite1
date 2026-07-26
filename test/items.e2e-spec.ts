@@ -1,10 +1,12 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { rmSync } from 'fs';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { PasswordService } from '../src/auth/services/password.service';
 import { TokenService } from '../src/auth/services/token.service';
+import { UPLOADS_ROOT } from '../src/storage/repositories/local-disk-storage.repository';
 
 /**
  * Exercises every FR-01 acceptance criterion end-to-end against a real
@@ -35,12 +37,18 @@ describe('Item Master (FR-01) e2e', () => {
 
   afterAll(async () => {
     await app.close();
+    // LocalDiskStorageRepository writes real files during the image-upload
+    // tests below — clean the whole tree up rather than leaving test
+    // artifacts in the working copy.
+    rmSync(UPLOADS_ROOT, { recursive: true, force: true });
   });
 
   afterEach(async () => {
     await prisma.transactionLog.deleteMany();
     await prisma.activityLog.deleteMany();
     await prisma.auditLog.deleteMany();
+    await prisma.itemImage.deleteMany();
+    await prisma.stockTransaction.deleteMany();
     await prisma.item.deleteMany();
     await prisma.category.deleteMany();
     await prisma.userAccess.deleteMany();
@@ -337,5 +345,254 @@ describe('Item Master (FR-01) e2e', () => {
 
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body.some((c: { name: string }) => c.name === 'Produce')).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------
+  // Opening stock (spec expansion)
+  // ---------------------------------------------------------------------
+
+  it('AC: creating an item with openingStock produces a real OPENING_BALANCE StockTransaction, not a raw currentStock write', async () => {
+    const { outlet } = await chainWithOutlet();
+    const cat = await category(outlet.id);
+    const { token } = await actor('owner9@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+
+    const created = await api()
+      .post('/api/v1/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send(itemPayload({
+        outletId: outlet.id,
+        categoryId: cat.id,
+        openingStock: { quantity: '25.000', ratePerUnit: '85.50' },
+      }))
+      .expect(201);
+
+    expect(created.body.currentStock).toBe('25.000');
+
+    const txns = await prisma.stockTransaction.findMany({ where: { itemId: created.body.id } });
+    expect(txns).toHaveLength(1);
+    expect(txns[0]!.type).toBe('OPENING_BALANCE');
+    expect(txns[0]!.quantity.toString()).toBe('25');
+    expect(txns[0]!.balanceAfter.toString()).toBe('25');
+  });
+
+  it('creating an item without openingStock leaves currentStock at 0 with no StockTransaction row', async () => {
+    const { outlet } = await chainWithOutlet();
+    const cat = await category(outlet.id);
+    const { token } = await actor('owner10@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+
+    const created = await api()
+      .post('/api/v1/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id }))
+      .expect(201);
+
+    expect(created.body.currentStock).toBe('0.000');
+    const txns = await prisma.stockTransaction.findMany({ where: { itemId: created.body.id } });
+    expect(txns).toHaveLength(0);
+  });
+
+  // ---------------------------------------------------------------------
+  // purchaseGLAccount / defaultTaxRateId (spec expansion)
+  // ---------------------------------------------------------------------
+
+  it('round-trips purchaseGLAccount and defaultTaxRateId through create and update', async () => {
+    const { outlet } = await chainWithOutlet();
+    const cat = await category(outlet.id);
+    const { token } = await actor('owner11@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+
+    const created = await api()
+      .post('/api/v1/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send(itemPayload({
+        outletId: outlet.id,
+        categoryId: cat.id,
+        purchaseGLAccount: 'Cost of Goods Sold',
+        defaultTaxRateId: 'tax-rate-placeholder',
+      }))
+      .expect(201);
+    expect(created.body.purchaseGLAccount).toBe('Cost of Goods Sold');
+    expect(created.body.defaultTaxRateId).toBe('tax-rate-placeholder');
+
+    const updated = await api()
+      .patch(`/api/v1/items/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ purchaseGLAccount: 'Inventory Asset' })
+      .expect(200);
+    expect(updated.body.purchaseGLAccount).toBe('Inventory Asset');
+    expect(updated.body.defaultTaxRateId).toBe('tax-rate-placeholder');
+  });
+
+  // ---------------------------------------------------------------------
+  // Clone (spec expansion)
+  // ---------------------------------------------------------------------
+
+  it('AC: cloning an item copies master data but never copies sku or current stock', async () => {
+    const { outlet } = await chainWithOutlet();
+    const cat = await category(outlet.id);
+    const { token } = await actor('owner12@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+
+    const source = await api()
+      .post('/api/v1/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send(itemPayload({
+        outletId: outlet.id,
+        categoryId: cat.id,
+        storageLocation: 'Dry Store',
+        openingStock: { quantity: '10.000', ratePerUnit: '85.50' },
+      }))
+      .expect(201);
+
+    const clone = await api()
+      .post(`/api/v1/items/${source.body.id}/clone`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ sku: 'RICE-BAS-002' })
+      .expect(201);
+
+    expect(clone.body.name).toBe('Basmati Rice (Copy)');
+    expect(clone.body.sku).toBe('RICE-BAS-002');
+    expect(clone.body.categoryId).toBe(cat.id);
+    expect(clone.body.storageLocation).toBe('Dry Store');
+    expect(clone.body.currentStock).toBe('0.000');
+
+    const cloneTxns = await prisma.stockTransaction.findMany({ where: { itemId: clone.body.id } });
+    expect(cloneTxns).toHaveLength(0);
+  });
+
+  it('rejects cloning into an already-used sku', async () => {
+    const { outlet } = await chainWithOutlet();
+    const cat = await category(outlet.id);
+    const { token } = await actor('owner13@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+
+    const source = await api()
+      .post('/api/v1/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id }))
+      .expect(201);
+
+    await api()
+      .post(`/api/v1/items/${source.body.id}/clone`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ sku: source.body.sku })
+      .expect(409);
+  });
+
+  // ---------------------------------------------------------------------
+  // Item images (spec expansion)
+  // ---------------------------------------------------------------------
+
+  describe('item images', () => {
+    // FileTypeValidator sniffs real magic numbers (via the `file-type`
+    // package), not just the declared Content-Type — a minimal but genuine
+    // 1x1 transparent PNG, so these tests exercise the real validation path
+    // rather than something that only happens to pass because it's mocked.
+    const PNG_1PX = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    );
+
+    async function createItem(token: string, outletId: string, categoryId: string) {
+      const res = await api()
+        .post('/api/v1/items')
+        .set('Authorization', `Bearer ${token}`)
+        .send(itemPayload({ outletId, categoryId }))
+        .expect(201);
+      return res.body;
+    }
+
+    it('AC: the first image uploaded is automatically primary; a second is not', async () => {
+      const { outlet } = await chainWithOutlet();
+      const cat = await category(outlet.id);
+      const { token } = await actor('owner14@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+      const item = await createItem(token, outlet.id, cat.id);
+
+      const first = await api()
+        .post(`/api/v1/items/${item.id}/images`)
+        .set('Authorization', `Bearer ${token}`)
+        .attach('file', PNG_1PX, 'one.png')
+        .expect(201);
+      expect(first.body.isPrimary).toBe(true);
+
+      const second = await api()
+        .post(`/api/v1/items/${item.id}/images`)
+        .set('Authorization', `Bearer ${token}`)
+        .attach('file', PNG_1PX, 'two.png')
+        .expect(201);
+      expect(second.body.isPrimary).toBe(false);
+
+      const list = await api()
+        .get(`/api/v1/items/${item.id}/images`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(list.body.map((i: { id: string }) => i.id).sort()).toEqual(
+        [first.body.id, second.body.id].sort(),
+      );
+    });
+
+    it('AC: deleting the primary image promotes the next-oldest remaining image to primary', async () => {
+      const { outlet } = await chainWithOutlet();
+      const cat = await category(outlet.id);
+      const { token } = await actor('owner15@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+      const item = await createItem(token, outlet.id, cat.id);
+
+      const first = await api()
+        .post(`/api/v1/items/${item.id}/images`)
+        .set('Authorization', `Bearer ${token}`)
+        .attach('file', PNG_1PX, 'one.png')
+        .expect(201);
+      const second = await api()
+        .post(`/api/v1/items/${item.id}/images`)
+        .set('Authorization', `Bearer ${token}`)
+        .attach('file', PNG_1PX, 'two.png')
+        .expect(201);
+
+      await api()
+        .delete(`/api/v1/items/${item.id}/images/${first.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const remaining = await prisma.itemImage.findUnique({ where: { id: second.body.id } });
+      expect(remaining!.isPrimary).toBe(true);
+    });
+
+    it('PATCH .../primary swaps which image is primary', async () => {
+      const { outlet } = await chainWithOutlet();
+      const cat = await category(outlet.id);
+      const { token } = await actor('owner16@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+      const item = await createItem(token, outlet.id, cat.id);
+
+      const first = await api()
+        .post(`/api/v1/items/${item.id}/images`)
+        .set('Authorization', `Bearer ${token}`)
+        .attach('file', PNG_1PX, 'one.png')
+        .expect(201);
+      const second = await api()
+        .post(`/api/v1/items/${item.id}/images`)
+        .set('Authorization', `Bearer ${token}`)
+        .attach('file', PNG_1PX, 'two.png')
+        .expect(201);
+
+      await api()
+        .patch(`/api/v1/items/${item.id}/images/${second.body.id}/primary`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      const rows = await prisma.itemImage.findMany({ where: { itemId: item.id } });
+      const byId = Object.fromEntries(rows.map((r) => [r.id, r.isPrimary]));
+      expect(byId[first.body.id]).toBe(false);
+      expect(byId[second.body.id]).toBe(true);
+    });
+
+    it('rejects a non-image file upload', async () => {
+      const { outlet } = await chainWithOutlet();
+      const cat = await category(outlet.id);
+      const { token } = await actor('owner17@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+      const item = await createItem(token, outlet.id, cat.id);
+
+      await api()
+        .post(`/api/v1/items/${item.id}/images`)
+        .set('Authorization', `Bearer ${token}`)
+        .attach('file', Buffer.from('not an image'), 'notes.txt')
+        .expect(400);
+    });
   });
 });

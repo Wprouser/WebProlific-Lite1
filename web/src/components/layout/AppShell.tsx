@@ -8,7 +8,7 @@ import { GlobalSearchDialog } from './GlobalSearch';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { useKeyboardShortcut } from '@/lib/use-keyboard-shortcut';
 import { useAppLanguage } from '@/i18n/useAppLanguage';
-import { mockCurrentUser } from '@/lib/fixtures';
+import { UserMenu } from './UserMenu';
 
 /**
  * FR-17's dashboard/navigation shell, now also the Global App Chrome
@@ -49,15 +49,10 @@ export function AppShell() {
             <span className="font-display text-lg font-semibold text-foreground">WebProlific</span>
           </div>
 
-          <div className="flex items-center gap-3 rounded-md bg-surface-secondary p-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-blue/10 text-sm font-semibold text-accent-blue">
-              {mockCurrentUser.initials}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-medium text-foreground">{mockCurrentUser.name}</span>
-              <span className="block truncate text-xs text-foreground-muted">{mockCurrentUser.effectiveRole}</span>
-            </span>
-          </div>
+          <UserMenu
+            className="w-full rounded-md bg-surface-secondary p-3"
+            avatarClassName="h-10 w-10 text-sm"
+          />
 
           <NavList />
         </aside>

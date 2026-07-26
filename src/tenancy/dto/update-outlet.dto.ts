@@ -18,9 +18,12 @@ export class UpdateOutletDto {
   @IsIn(OUTLET_TYPES)
   type?: OutletType;
 
-  @IsOptional()
-  @IsString()
-  baseCurrency?: string;
+  // baseCurrency is deliberately NOT here — it must go through the
+  // dedicated PATCH /outlets/:id/currency-settings endpoint (CHAIN_OWNER
+  // only, blocked once transactional history exists per FR-16's business
+  // rule). This generic settings endpoint is open to CHAIN_OWNER/
+  // PROPERTY_MANAGER/OUTLET_MANAGER, which would otherwise be a back door
+  // around that restriction.
 
   @IsOptional()
   @Matches(/^\d+(\.\d{1,2})?$/, {

@@ -9,7 +9,7 @@ import {
   StockTransactionRepository,
   UpdatedItemStockSnapshot,
 } from '../stock-transaction.repository';
-import { TRANSACTION_DIRECTION } from '../../constants/enums';
+import { applyStockTransaction } from '../../lib/apply-stock-transaction';
 
 // .toFixed(n), not .toString() — Decimal.toString() drops trailing zeros
 // (85.50 -> "85.5"), breaking the project's fixed-precision convention.
@@ -56,34 +56,28 @@ export class PrismaStockTransactionRepository implements StockTransactionReposit
         // whole point of keeping the DB swappable (see CLAUDE.md).
         const item = await tx.item.findUniqueOrThrow({ where: { id: input.itemId } });
 
-        const direction = TRANSACTION_DIRECTION[input.type];
-        const delta = new Prisma.Decimal(input.quantity).mul(direction);
-        const balanceAfter = item.currentStock.plus(delta);
+        const outcome = await applyStockTransaction(tx, {
+          outletId: input.outletId,
+          itemId: input.itemId,
+          type: input.type,
+          quantity: input.quantity,
+          currentStock: item.currentStock,
+          referenceType: input.referenceType,
+          referenceId: input.referenceId,
+          reasonCode: input.reasonCode,
+          performedById: input.performedById,
+          allowNegativeBalance: input.allowNegativeBalance,
+        });
 
-        if (balanceAfter.lessThan(0) && !input.allowNegativeBalance) {
-          return { ok: false, reason: 'INSUFFICIENT_STOCK', item: snapshotOf(item) };
+        if (!outcome.ok) {
+          return { ok: false, reason: outcome.reason, item: snapshotOf(item) };
         }
 
-        const created = await tx.stockTransaction.create({
-          data: {
-            outletId: input.outletId,
-            itemId: input.itemId,
-            type: input.type,
-            quantity: input.quantity,
-            balanceAfter: balanceAfter.toFixed(3),
-            referenceType: input.referenceType,
-            referenceId: input.referenceId,
-            reasonCode: input.reasonCode,
-            performedById: input.performedById,
-          },
-        });
-
-        const updatedItem = await tx.item.update({
-          where: { id: input.itemId },
-          data: { currentStock: balanceAfter.toFixed(3) },
-        });
-
-        return { ok: true, transaction: toDomain(created), item: snapshotOf(updatedItem) };
+        return {
+          ok: true,
+          transaction: toDomain(outcome.transaction),
+          item: snapshotOf({ ...item, currentStock: outcome.balanceAfter }),
+        };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -114,5 +108,13 @@ export class PrismaStockTransactionRepository implements StockTransactionReposit
       orderBy: { createdAt: 'desc' },
     });
     return rows.map(toDomain);
+  }
+
+  async existsForOutlet(outletId: string): Promise<boolean> {
+    const row = await this.prisma.stockTransaction.findFirst({
+      where: { outletId },
+      select: { id: true },
+    });
+    return row !== null;
   }
 }

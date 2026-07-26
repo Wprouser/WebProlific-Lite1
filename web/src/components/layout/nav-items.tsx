@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart3, ClipboardList, LayoutDashboard, Package, Palette, Truck, Users } from 'lucide-react';
+import { BarChart3, ClipboardList, Coins, LayoutDashboard, Package, Palette, Percent, Truck, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 interface NavItem {
@@ -16,7 +16,21 @@ interface NavItem {
 export const navItems: NavItem[] = [
   { labelKey: 'dashboard', icon: LayoutDashboard, to: '/' },
   { labelKey: 'items', icon: Package, to: '/items' },
-  { labelKey: 'stock', icon: ClipboardList },
+  { labelKey: 'stock', icon: ClipboardList, to: '/stock' },
+  // FR-04's Tax Configuration: outlet-level shared reference data used by
+  // Items, POs, and GRNs alike — a top-level nav destination, not an Items
+  // sub-feature. Visible to every role (not just CHAIN_OWNER/PROPERTY_
+  // MANAGER, who can mutate it) since OUTLET_MANAGER-tier users still
+  // benefit from seeing/previewing the rates in use, matching the
+  // Preview-vs-Edit/Deactivate split already enforced on the screen itself.
+  { labelKey: 'taxes', icon: Percent, to: '/tax-rates' },
+  // FR-16's Currency & Exchange Rates: Currency/ExchangeRate are global,
+  // platform-wide reference data (not outlet-scoped, unlike TaxRate) — a
+  // top-level destination for the same reason Taxes is. Visible to every
+  // role; the screen itself gates the two mutating actions separately
+  // (base-currency change: CHAIN_OWNER only; add rate: CHAIN_OWNER/
+  // PROPERTY_MANAGER), same read-vs-mutate split as Tax Configuration.
+  { labelKey: 'currency', icon: Coins, to: '/currency' },
   { labelKey: 'suppliers', icon: Truck },
   { labelKey: 'reports', icon: BarChart3 },
   { labelKey: 'users', icon: Users },

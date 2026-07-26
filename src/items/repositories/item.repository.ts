@@ -1,5 +1,16 @@
 import { Item } from '../domain/item.entity';
 
+export interface OpeningStockInput {
+  quantity: string;
+  // Accepted for API-contract fidelity with the spec's request example, but
+  // not persisted as its own column — StockTransaction (FR-02, already
+  // built/signed-off) has no rate/price field, and costPrice already
+  // captures "cost at creation" for the Item itself, so there's nowhere
+  // distinct to store a separately-tracked opening rate without a FR-02
+  // schema change outside this FR's scope.
+  ratePerUnit?: string;
+}
+
 export interface CreateItemInput {
   outletId: string;
   name: string;
@@ -12,7 +23,14 @@ export interface CreateItemInput {
   shelfLifeDays?: number;
   costPrice: string;
   defaultSupplierId?: string;
+  purchaseGLAccount?: string;
+  defaultTaxRateId?: string;
   storageLocation?: string;
+  // Who's performing the create — only needed when openingStock is present,
+  // to attribute the resulting OPENING_BALANCE StockTransaction the same
+  // way any other transaction records performedById.
+  performedById: string;
+  openingStock?: OpeningStockInput;
 }
 
 // currentStock and outletId are deliberately absent — currentStock is only
@@ -31,6 +49,8 @@ export interface UpdateItemInput {
   shelfLifeDays?: number | null;
   costPrice?: string;
   defaultSupplierId?: string | null;
+  purchaseGLAccount?: string | null;
+  defaultTaxRateId?: string | null;
   storageLocation?: string | null;
   isActive?: boolean;
 }

@@ -326,11 +326,21 @@ model Item {
   // No Supplier relation — FR-03 (Suppliers) isn't built yet, so this is a
   // loose reference for now, same pattern as AuditLog's polymorphic ids.
   defaultSupplierId String?
+  // Free-text accounting metadata carried through on exports only — no
+  // GL/ledger logic is implemented in-app.
+  purchaseGLAccount String?
+  // Loose reference, not a formal @relation — a minimal TaxRate table now
+  // exists (seeded starter rates only, see DefaultTaxRatesListener) to
+  // unblock this dropdown, but full FR-04/FR-16 (PO/GRN tax config,
+  // Currency, ExchangeRate) still isn't built, so this stays unenforced
+  // for now rather than adding FK integrity ahead of that larger piece.
+  defaultTaxRateId String?
   storageLocation   String?
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   stockTransactions StockTransaction[]
+  images            ItemImage[]
 
   @@index([outletId, isActive])
   @@index([categoryId])
@@ -344,6 +354,98 @@ model Category {
   items    Item[]
 
   @@unique([name, outletId])
+}
+
+// Minimal slice of FR-04/FR-16's TaxRate — just enough to seed starter rates
+// per outlet (see DefaultTaxRatesListener) and populate Item's default-tax
+// dropdown. The fuller PO/GRN per-line tax application is still a later FR,
+// not built here — Currency/ExchangeRate (below) are built now (FR-16's
+// standalone Currency & Exchange Rates screen), ahead of PO/GRN.
+model TaxRate {
+  id          String   @id @default(uuid())
+  outletId    String
+  name        String // e.g. "VAT 15%", "GST 18% (Intra-state)", "GST 18% (Inter-state)", "Zero-Rated"
+  // The total/effective rate — for compound rates this must equal the sum
+  // of all component rates (enforced in TaxRatesService, not a DB
+  // constraint), and is what's actually used to compute lineTaxAmount.
+  ratePercent Decimal  @db.Decimal(5, 2)
+  // true for split taxes (GST-style: CGST+SGST or IGST); false for a
+  // simple single-rate tax (VAT-style) — the only kind this model
+  // originally supported.
+  isCompound  Boolean  @default(false)
+  // Deliberately never set true by the seeder — per spec, tax stays an
+  // explicit per-line choice, never silently auto-applied.
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  countryCode String? // e.g. "SA" — for default suggestion by outlet locale
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // Empty for isCompound: false; 1+ rows for isCompound: true (a single
+  // IGST component is valid — India's inter-state GST is still modeled as
+  // "compound" for consistency even though it's only one line).
+  components  TaxRateComponent[]
+
+  @@index([outletId, isActive])
+}
+
+model TaxRateComponent {
+  id            String  @id @default(uuid())
+  taxRateId     String
+  taxRate       TaxRate @relation(fields: [taxRateId], references: [id])
+  // Free text, not a hardcoded enum — e.g. "CGST", "SGST", "IGST" — so this
+  // isn't India-specific at the schema level (Canada's GST+PST could use
+  // the same mechanism).
+  componentName String
+  // Components must sum to exactly the parent TaxRate.ratePercent —
+  // enforced in TaxRatesService on create/update.
+  componentRate Decimal @db.Decimal(5, 2)
+
+  @@index([taxRateId])
+}
+
+// FR-16: Multi-Currency Support. Both models are global/platform-wide
+// reference data — deliberately no outletId on either, unlike TaxRate. Only
+// Outlet.baseCurrency (above) is per-outlet; the outlet just references a
+// Currency.code by convention (no FK — same loose-reference pattern as
+// TaxRate.countryCode), and the Currency & Exchange Rates screen filters
+// its exchange-rate display to what's relevant for the current outlet
+// without the underlying data being scoped to it.
+model Currency {
+  code          String @id // ISO 4217, e.g. "SAR", "AED", "USD"
+  name          String
+  symbol        String
+  decimalPlaces Int    @default(2)
+}
+
+// Append-only/historical by design — "updating" a rate means inserting a
+// new row with a later effectiveDate, never editing one in place, so the
+// system always uses whichever row for a given pair has the latest
+// effectiveDate. No FK to Currency.code (matches the spec's own schema
+// snippet verbatim) — validated at the application layer instead.
+model ExchangeRate {
+  id             String   @id @default(uuid())
+  baseCurrency   String
+  targetCurrency String
+  rate           Decimal  @db.Decimal(12, 6)
+  effectiveDate  DateTime @default(now())
+  source         String // 'MANUAL' | 'API' (API reserved for a future scheduled FX sync job)
+
+  @@index([baseCurrency, targetCurrency, effectiveDate])
+}
+
+// FR-01: item images. Exactly one image per item may have isPrimary: true —
+// enforced in service logic, not a DB constraint (SQL Server has no partial
+// unique index support that Prisma can express here).
+model ItemImage {
+  id        String   @id @default(uuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id])
+  url       String
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([itemId])
 }
 
 // FR-02: Stock-In / Stock-Out Transactions — the ledger every later module

@@ -33,12 +33,19 @@ export default defineConfig({
     },
   },
   server: {
-    // Dev-only: lets the frontend call same-origin `/api/v1/...` paths
-    // without the backend needing CORS configured — that's a separate,
-    // more consequential decision (real origin whitelisting) for whenever
-    // this ships behind a real domain.
+    // Dev-only: lets the frontend call same-origin `/api/v1/...` and
+    // `/uploads/...` paths without the backend needing CORS configured —
+    // that's a separate, more consequential decision (real origin
+    // whitelisting) for whenever this ships behind a real domain.
     proxy: {
       '/api': 'http://localhost:3000',
+      // ItemImage.url values are stored as backend-relative paths (see
+      // LocalDiskStorageRepository) and rendered directly as <img src>, so
+      // without this the browser resolves them against the Vite dev
+      // server's own origin, which has no route for them — Vite's SPA
+      // fallback then serves index.html instead of the image (200, but
+      // text/html), and the <img> silently renders blank.
+      '/uploads': 'http://localhost:3000',
     },
   },
   test: {

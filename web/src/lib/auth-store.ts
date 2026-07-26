@@ -2,6 +2,10 @@ const STORAGE_KEY = 'webprolific.session';
 
 export interface SessionUser {
   id: string;
+  // Not part of the /auth/login response (see Login.tsx) — filled in from a
+  // follow-up GET /auth/me right after login, since the User model itself
+  // has no display-name field to show instead.
+  email: string;
   preferredLanguage: string;
   effectiveRole: string | undefined;
   effectiveOutletIds: string[];
@@ -9,6 +13,9 @@ export interface SessionUser {
 
 export interface Session {
   accessToken: string;
+  // Needed to call POST /auth/logout (which revokes this specific refresh
+  // token server-side) — previously discarded entirely.
+  refreshToken: string;
   user: SessionUser;
 }
 

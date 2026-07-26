@@ -3,6 +3,7 @@ import { Item as PrismaItem, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Item } from '../../domain/item.entity';
 import { CreateItemInput, ItemFilters, ItemRepository, UpdateItemInput } from '../item.repository';
+import { applyStockTransaction } from '../../../stock-transactions/lib/apply-stock-transaction';
 
 function toDomain(item: PrismaItem): Item {
   return {
@@ -24,7 +25,48 @@ export class PrismaItemRepository implements ItemRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: CreateItemInput): Promise<Item> {
-    const item = await this.prisma.item.create({ data });
+    const { openingStock, performedById, ...itemData } = data;
+
+    if (!openingStock) {
+      const item = await this.prisma.item.create({ data: itemData });
+      return toDomain(item);
+    }
+
+    // Opening stock must land atomically with the Item row itself (spec:
+    // "the service creates a StockTransaction ... as part of the same
+    // request, not a follow-up call the frontend has to remember to make").
+    // No locked re-read is needed here (unlike
+    // PrismaStockTransactionRepository.createWithBalanceUpdate) — this Item
+    // row doesn't exist until this same transaction creates it, so there's
+    // no concurrent writer to race against.
+    const item = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.item.create({ data: itemData });
+
+      const outcome = await applyStockTransaction(tx, {
+        outletId: created.outletId,
+        itemId: created.id,
+        type: 'OPENING_BALANCE',
+        quantity: openingStock.quantity,
+        currentStock: created.currentStock,
+        referenceType: 'MANUAL',
+        referenceId: null,
+        reasonCode: null,
+        performedById,
+        allowNegativeBalance: false,
+      });
+
+      if (!outcome.ok) {
+        // Unreachable in practice: OPENING_BALANCE only ever adds to a
+        // freshly-created item's zero balance, so it can never go negative.
+        // Thrown (rather than silently ignored) so a future change to this
+        // invariant fails loudly instead of creating an item with a wrong
+        // balance.
+        throw new Error('Opening stock balance computation went negative unexpectedly');
+      }
+
+      return { ...created, currentStock: outcome.balanceAfter };
+    });
+
     return toDomain(item);
   }
 

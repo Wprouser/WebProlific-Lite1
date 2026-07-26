@@ -1,0 +1,1 @@
+export const STORAGE_REPOSITORY = Symbol('STORAGE_REPOSITORY');

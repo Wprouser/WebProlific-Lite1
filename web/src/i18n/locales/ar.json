@@ -12,7 +12,9 @@
     "close": "إغلاق",
     "moreActions": "المزيد من الإجراءات",
     "switchToLightMode": "التبديل إلى الوضع الفاتح",
-    "switchToDarkMode": "التبديل إلى الوضع الداكن"
+    "switchToDarkMode": "التبديل إلى الوضع الداكن",
+    "logout": "تسجيل الخروج",
+    "unknownUser": "تم تسجيل الدخول"
   },
   "export": {
     "menuItemSuffix": "(لا يوجد شيء لتصديره هنا)",
@@ -22,6 +24,8 @@
     "dashboard": "لوحة التحكم",
     "items": "الأصناف",
     "stock": "المخزون",
+    "taxes": "الضرائب",
+    "currency": "العملة",
     "suppliers": "الموردون",
     "reports": "التقارير",
     "users": "المستخدمون",
@@ -170,6 +174,7 @@
     "subtitle": "إدارة قائمة الأصناف والفئات لمنفذك",
     "addItem": "إضافة صنف",
     "manageCategories": "إدارة الفئات",
+    "manageTaxRates": "نسب الضريبة",
     "searchPlaceholder": "ابحث بالاسم أو رمز الصنف…",
     "loadError": "تعذر تحميل الأصناف",
     "filters": {
@@ -203,6 +208,9 @@
     "form": {
       "createTitle": "إضافة صنف",
       "editTitle": "تعديل الصنف",
+      "sectionBasics": "المعلومات الأساسية",
+      "sectionStock": "المخزون والتسعير",
+      "sectionAdditional": "تفاصيل إضافية",
       "name": "الاسم",
       "namePlaceholder": "مثال: أرز بسمتي",
       "category": "الفئة",
@@ -218,15 +226,22 @@
       "shelfLifeDays": "مدة الصلاحية (أيام)",
       "storageLocation": "موقع التخزين",
       "storageLocationPlaceholder": "اختياري",
+      "defaultSupplierId": "المورد الافتراضي",
+      "defaultSupplierIdPlaceholder": "اختياري",
+      "purchaseGLAccount": "حساب دفتر الأستاذ للشراء",
+      "purchaseGLAccountPlaceholder": "اختياري — لتصدير الحسابات فقط",
+      "defaultTaxRateId": "نسبة الضريبة الافتراضية",
+      "defaultTaxRateIdPlaceholder": "اختياري",
+      "defaultTaxRateIdInactiveOption": "{{name}} (غير نشطة)",
+      "openingStockTitle": "الرصيد الافتتاحي",
+      "openingStockHint": "يُسجَّل مرة واحدة عند الإنشاء — لا يمكن تعديله من هنا لاحقًا.",
+      "openingQuantity": "الكمية",
+      "openingRatePerUnit": "السعر لكل وحدة",
       "cancel": "إلغاء",
       "save": "حفظ الصنف",
       "saving": "جارٍ الحفظ…",
       "errorMinMax": "يجب أن يكون الحد الأدنى للمخزون أقل من الحد الأقصى",
-      "saveError": "تعذر الحفظ. يرجى المحاولة مرة أخرى.",
-      "deactivate": "إلغاء التفعيل",
-      "deactivating": "جارٍ إلغاء التفعيل…",
-      "confirmDeactivate": "هل تريد إلغاء تفعيل هذا الصنف؟",
-      "confirmYes": "نعم، إلغاء التفعيل"
+      "saveError": "تعذر الحفظ. يرجى المحاولة مرة أخرى."
     },
     "categoryManager": {
       "title": "إدارة الفئات",
@@ -242,6 +257,249 @@
       "BOX": "صندوق",
       "GRAM": "غرام (g)",
       "ML": "مليلتر (ml)"
+    },
+    "detail": {
+      "back": "العودة إلى الأصناف",
+      "loadError": "تعذر تحميل هذا الصنف",
+      "notFound": "الصنف غير موجود",
+      "edit": "تعديل",
+      "adjustStock": "تعديل المخزون",
+      "more": "المزيد",
+      "clone": "استنساخ الصنف",
+      "markInactive": "وضع علامة غير نشط",
+      "reactivate": "إعادة التفعيل",
+      "manageCategories": "إدارة الفئات",
+      "confirmDeactivate": "هل تريد إلغاء تفعيل هذا الصنف؟",
+      "confirmReactivate": "هل تريد إعادة تفعيل هذا الصنف؟",
+      "confirmYes": "نعم",
+      "cancel": "إلغاء",
+      "deactivating": "جارٍ إلغاء التفعيل…",
+      "reactivating": "جارٍ إعادة التفعيل…",
+      "currentStock": "المخزون الحالي",
+      "stockValue": "قيمة المخزون",
+      "openingStock": "الرصيد الافتتاحي",
+      "tabs": {
+        "overview": "نظرة عامة",
+        "transactions": "الحركات",
+        "history": "السجل"
+      },
+      "overview": {
+        "category": "الفئة",
+        "unit": "الوحدة",
+        "reorderPoint": "نقطة إعادة الطلب (الحد الأدنى / الأقصى)",
+        "shelfLifeDays": "مدة الصلاحية",
+        "shelfLifeDaysValue_one": "{{count}} يوم",
+        "shelfLifeDaysValue_other": "{{count}} يومًا",
+        "storageLocation": "موقع التخزين",
+        "costPrice": "سعر التكلفة",
+        "defaultSupplier": "المورد الافتراضي",
+        "defaultTaxRate": "نسبة الضريبة الافتراضية",
+        "purchaseGLAccount": "حساب دفتر الأستاذ للشراء",
+        "images": "الصور",
+        "uploadImage": "رفع صورة",
+        "uploading": "جارٍ الرفع…",
+        "uploadError": "تعذر رفع هذه الصورة",
+        "noImages": "لا توجد صور بعد",
+        "primaryBadge": "أساسية",
+        "setPrimary": "تعيين كصورة أساسية",
+        "deleteImage": "حذف"
+      },
+      "history": {
+        "empty": "لا يوجد سجل بعد",
+        "loadError": "تعذر تحميل السجل",
+        "restricted": "ليس لديك صلاحية لعرض سجل هذا الصنف"
+      },
+      "cloneDialog": {
+        "title": "استنساخ الصنف",
+        "description": "ينشئ صنفًا جديدًا معبّأً مسبقًا من هذا الصنف. لا يتم نسخ المخزون أو الرصيد الافتتاحي أبدًا.",
+        "newSku": "رمز الصنف الجديد",
+        "newSkuPlaceholder": "مثال: RICE-BAS-002",
+        "cancel": "إلغاء",
+        "clone": "استنساخ",
+        "cloning": "جارٍ الاستنساخ…",
+        "error": "تعذر استنساخ هذا الصنف"
+      }
+    }
+  },
+  "stock": {
+    "title": "حركات المخزون",
+    "subtitle": "سجّل حركات المخزون وراجع سجل المعاملات",
+    "recordTransaction": "تسجيل حركة",
+    "loadError": "تعذر تحميل حركات المخزون",
+    "filters": {
+      "allItems": "كل الأصناف",
+      "allTypes": "كل الأنواع",
+      "dateFrom": "من",
+      "dateTo": "إلى"
+    },
+    "table": {
+      "date": "التاريخ",
+      "item": "الصنف",
+      "type": "النوع",
+      "quantity": "الكمية",
+      "balanceAfter": "الرصيد بعد الحركة",
+      "reasonCode": "السبب"
+    },
+    "types": {
+      "PURCHASE_IN": "شراء وارد",
+      "OPENING_BALANCE": "رصيد افتتاحي",
+      "TRANSFER_IN": "تحويل وارد",
+      "ADJUSTMENT_IN": "تسوية زيادة",
+      "USAGE_OUT": "استهلاك",
+      "WASTAGE_OUT": "هالك",
+      "TRANSFER_OUT": "تحويل صادر",
+      "ADJUSTMENT_OUT": "تسوية نقص"
+    },
+    "reasonCodes": {
+      "EXPIRED": "منتهي الصلاحية",
+      "DAMAGED": "تالف",
+      "SPILLED": "منسكب",
+      "OVER_PREPARED": "تحضير زائد"
+    },
+    "empty": {
+      "title": "لا توجد حركات مطابقة لعوامل التصفية",
+      "description": "جرّب تعديل البحث أو عوامل التصفية.",
+      "action": "تسجيل حركة"
+    },
+    "form": {
+      "title": "تسجيل حركة مخزون",
+      "item": "الصنف",
+      "itemPlaceholder": "اختر صنفًا",
+      "type": "نوع الحركة",
+      "quantity": "الكمية",
+      "reasonCode": "السبب",
+      "reasonCodePlaceholder": "اختر سببًا",
+      "forceOverride": "السماح حتى لو أدى ذلك لرصيد سالب",
+      "forceOverrideHint": "للمديرين فقط — ليس له أثر مع الأدوار الأخرى.",
+      "cancel": "إلغاء",
+      "save": "تسجيل الحركة",
+      "saving": "جارٍ التسجيل…",
+      "errorReasonRequired": "السبب مطلوب لحركات الهالك",
+      "saveError": "تعذر تسجيل هذه الحركة. يرجى المحاولة مرة أخرى."
+    }
+  },
+  "taxRates": {
+    "back": "العودة إلى الأصناف",
+    "title": "إعدادات الضريبة",
+    "subtitle": "إدارة نسب الضريبة المشتركة بين الأصناف وأوامر الشراء وإيصالات الاستلام",
+    "addTaxRate": "إضافة نسبة ضريبة",
+    "loadError": "تعذر تحميل نسب الضريبة",
+    "table": {
+      "name": "الاسم",
+      "rate": "النسبة",
+      "type": "النوع",
+      "status": "الحالة"
+    },
+    "type": {
+      "simple": "بسيطة",
+      "split": "مقسّمة"
+    },
+    "status": {
+      "active": "نشطة",
+      "inactive": "غير نشطة"
+    },
+    "countries": {
+      "saudiArabia": "المملكة العربية السعودية",
+      "uae": "الإمارات العربية المتحدة",
+      "india": "الهند"
+    },
+    "edit": "تعديل",
+    "deactivate": "إلغاء التفعيل",
+    "deactivating": "جارٍ إلغاء التفعيل…",
+    "confirmDeactivate": "هل تريد إلغاء تفعيل \"{{name}}\"؟ لن تظهر بعد الآن كخيار للاختيارات الجديدة.",
+    "confirmLastActive": "\"{{name}}\" هي آخر نسبة ضريبة نشطة — سيؤدي إلغاء تفعيلها إلى ترك المنفذ بدون أي نسبة ضريبة نشطة. هل تريد المتابعة؟",
+    "confirmYes": "نعم، إلغاء التفعيل",
+    "cancel": "إلغاء",
+    "empty": {
+      "title": "لا توجد نسب ضريبة بعد",
+      "description": "أضف نسب الضريبة الخاصة بمنفذك لتصبح قابلة للاختيار في الأصناف وأوامر الشراء وإيصالات الاستلام."
+    },
+    "form": {
+      "createTitle": "إضافة نسبة ضريبة",
+      "editTitle": "تعديل نسبة الضريبة",
+      "name": "الاسم",
+      "namePlaceholder": "مثال: ضريبة القيمة المضافة 15%",
+      "country": "الدولة",
+      "countryPlaceholder": "بدون",
+      "compoundToggle": "ضريبة مركّبة؟",
+      "compoundToggleHint": "فعّل هذا الخيار للضرائب المقسّمة إلى عدة مكونات، مثل CGST وSGST أو IGST في الهند.",
+      "componentsTitle": "المكونات",
+      "componentName": "اسم المكوّن",
+      "componentNamePlaceholder": "مثال: CGST",
+      "componentRate": "النسبة (%)",
+      "addComponent": "إضافة مكوّن",
+      "removeComponent": "إزالة المكوّن",
+      "autoSumHint": "يتم احتساب النسبة الإجمالية تلقائيًا كمجموع المكونات.",
+      "ratePercent": "النسبة (%)",
+      "activeToggle": "نشطة",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "saveError": "تعذر الحفظ. يرجى المحاولة مرة أخرى.",
+      "permissionError": "ليس لديك صلاحية لإجراء هذا التغيير."
+    },
+    "breakdown": {
+      "tax": "{{amount}}"
+    },
+    "preview": {
+      "action": "معاينة",
+      "title": "معاينة: {{name}}",
+      "description": "احسب كيفية تطبيق نسبة الضريبة هذه على مبلغ نموذجي — ليست معاملة فعلية.",
+      "subtotal": "الصافي",
+      "calculate": "احسب",
+      "calculating": "جارٍ الحساب…",
+      "net": "الصافي",
+      "taxLabel": "الضريبة",
+      "gross": "الإجمالي",
+      "error": "تعذر الحساب. يرجى المحاولة مرة أخرى."
+    }
+  },
+  "currency": {
+    "title": "العملة وأسعار الصرف",
+    "subtitle": "عملة الأساس لهذا المنفذ وأسعار الصرف المستخدمة لتحويل المشتريات بعملات أجنبية",
+    "loadError": "تعذر تحميل إعدادات العملة",
+    "baseCurrencySection": {
+      "title": "عملة الأساس لهذا المنفذ",
+      "change": "تغيير عملة الأساس"
+    },
+    "ratesSection": {
+      "title": "أسعار الصرف",
+      "subtitle": "الأسعار سجل تاريخي — حفظ سعر جديد لا يعدّل سعرًا قديمًا أبدًا؛ يُستخدم دائمًا الأحدث",
+      "addRate": "إضافة سعر",
+      "empty": {
+        "title": "لا توجد أسعار صرف بعد",
+        "description": "أضف سعرًا لتحويل المشتريات بعملات أجنبية إلى عملة الأساس لهذا المنفذ."
+      }
+    },
+    "table": {
+      "baseCurrency": "عملة الأساس",
+      "targetCurrency": "العملة المستهدفة",
+      "rate": "السعر",
+      "effectiveDate": "تاريخ السريان",
+      "source": "المصدر"
+    },
+    "source": {
+      "manual": "يدوي",
+      "api": "واجهة برمجية"
+    },
+    "changeBaseCurrency": {
+      "title": "تغيير عملة الأساس",
+      "description": "هذا الإجراء مقيّد بشدة — سيُرفض بمجرد أن يكون لهذا المنفذ أي سجل معاملات، لأن تغييره لاحقًا سيبطل تقارير التقييم التاريخية."
+    },
+    "rateForm": {
+      "title": "إضافة سعر صرف"
+    },
+    "form": {
+      "baseCurrency": "عملة الأساس",
+      "targetCurrency": "العملة المستهدفة",
+      "targetCurrencyPlaceholder": "اختر عملة",
+      "rate": "السعر",
+      "ratePlaceholder": "مثال: 0.266667",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…",
+      "saveError": "تعذر الحفظ. يرجى المحاولة مرة أخرى.",
+      "permissionError": "ليس لديك صلاحية لإجراء هذا التغيير."
     }
   }
 }

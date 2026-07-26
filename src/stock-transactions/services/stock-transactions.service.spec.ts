@@ -22,6 +22,8 @@ function fixtureItem(overrides: Partial<Item> = {}): Item {
     shelfLifeDays: 365,
     costPrice: '85.50',
     defaultSupplierId: null,
+    purchaseGLAccount: null,
+    defaultTaxRateId: null,
     storageLocation: null,
     isActive: true,
     createdAt: new Date(),

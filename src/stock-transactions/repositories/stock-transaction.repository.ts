@@ -48,4 +48,8 @@ export interface StockTransactionRepository {
   createWithBalanceUpdate(input: CreateStockTransactionInput): Promise<CreateStockTransactionResult>;
   findById(id: string): Promise<StockTransaction | null>;
   findScoped(filters: StockTransactionFilters): Promise<StockTransaction[]>;
+  /** FR-16: whether this outlet has any transactional history at all —
+   * used to block base-currency changes once real data exists. Cheap
+   * existence check, not a count, since the caller only needs a boolean. */
+  existsForOutlet(outletId: string): Promise<boolean>;
 }

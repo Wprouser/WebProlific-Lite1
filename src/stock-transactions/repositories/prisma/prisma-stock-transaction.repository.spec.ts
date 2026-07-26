@@ -49,6 +49,25 @@ describe('PrismaStockTransactionRepository', () => {
     });
   });
 
+  describe('existsForOutlet', () => {
+    it('returns true when at least one transaction row exists for the outlet', async () => {
+      const findFirst = jest.fn().mockResolvedValue({ id: 't1' });
+      const prisma = { stockTransaction: { findFirst } };
+      const repository = new PrismaStockTransactionRepository(prisma as any);
+
+      expect(await repository.existsForOutlet('o1')).toBe(true);
+      expect(findFirst).toHaveBeenCalledWith({ where: { outletId: 'o1' }, select: { id: true } });
+    });
+
+    it('returns false when the outlet has no transaction history at all', async () => {
+      const findFirst = jest.fn().mockResolvedValue(null);
+      const prisma = { stockTransaction: { findFirst } };
+      const repository = new PrismaStockTransactionRepository(prisma as any);
+
+      expect(await repository.existsForOutlet('o1')).toBe(false);
+    });
+  });
+
   describe('createWithBalanceUpdate', () => {
     function buildRepository(currentStock: string) {
       const item = {

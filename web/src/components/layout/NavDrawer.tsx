@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { NavList } from './nav-items';
-import { mockCurrentUser } from '@/lib/fixtures';
+import { UserMenu } from './UserMenu';
 import { cn } from '@/lib/cn';
 
 export interface NavDrawerProps {
@@ -41,19 +41,10 @@ export function NavDrawer({ open, onOpenChange }: NavDrawerProps) {
             </Dialog.Close>
           </div>
 
-          <div className="mb-4 flex items-center gap-3 rounded-md bg-surface-secondary p-3 tablet:hidden">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-blue/10 text-sm font-semibold text-accent-blue">
-              {mockCurrentUser.initials}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-medium text-foreground">
-                {mockCurrentUser.name}
-              </span>
-              <span className="block truncate text-xs text-foreground-muted">
-                {mockCurrentUser.effectiveRole}
-              </span>
-            </span>
-          </div>
+          <UserMenu
+            className="mb-4 w-full rounded-md bg-surface-secondary p-3 tablet:hidden"
+            avatarClassName="h-10 w-10 text-sm"
+          />
 
           <NavList onNavigate={() => onOpenChange(false)} />
         </Dialog.Content>

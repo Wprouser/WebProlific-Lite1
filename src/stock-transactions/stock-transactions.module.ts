@@ -13,5 +13,8 @@ import { PrismaStockTransactionRepository } from './repositories/prisma/prisma-s
     StockTransactionsService,
     { provide: STOCK_TRANSACTION_REPOSITORY, useClass: PrismaStockTransactionRepository },
   ],
+  // FR-16: TenancyModule needs this to check "does this outlet have any
+  // transactional history" before allowing a base-currency change.
+  exports: [STOCK_TRANSACTION_REPOSITORY],
 })
 export class StockTransactionsModule {}

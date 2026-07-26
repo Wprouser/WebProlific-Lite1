@@ -3,6 +3,7 @@ import { ItemsService } from '../services/items.service';
 import { CreateItemDto } from '../dto/create-item.dto';
 import { UpdateItemDto } from '../dto/update-item.dto';
 import { QueryItemsDto } from '../dto/query-items.dto';
+import { CloneItemDto } from '../dto/clone-item.dto';
 import { RequestWithAccess } from '../../tenancy/types/request-with-access';
 import { AuditLogService } from '../../rbac/services/audit-log.service';
 import { RestrictFields } from '../../rbac/decorators/restrict-fields.decorator';
@@ -83,5 +84,27 @@ export class ItemsController {
       after,
     });
     return after;
+  }
+
+  @Post(':id/clone')
+  async clone(
+    @Param('id') id: string,
+    @Body() dto: CloneItemDto,
+    @Req() request: RequestWithAccess,
+  ) {
+    const clone = await this.itemsService.clone(request, id, dto.sku);
+    // Named CREATE_ITEM (not CLONE_ITEM) — from the new item's own history
+    // this genuinely is its creation, and AuditLogService.inferOperation
+    // matches actions by prefix, so this keeps the clone's own "History" tab
+    // (FR-18 TransactionLog) populated the same way a normal create is.
+    await this.auditLogService.record({
+      userId: request.user!.id,
+      action: 'CREATE_ITEM',
+      entityType: 'Item',
+      entityId: clone.id,
+      outletId: clone.outletId,
+      after: clone,
+    });
+    return clone;
   }
 }

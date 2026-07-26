@@ -28,6 +28,11 @@ export function Modal({ open, onOpenChange, title, description, children, classN
         <Dialog.Content
           className={cn(
             'fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2',
+            // max-h/overflow — without this, a modal taller than the
+            // viewport (e.g. a long form on a short laptop screen) renders
+            // past both the top and bottom of the visible area with no way
+            // to scroll to the rest, including its own footer buttons.
+            'max-h-[90vh] overflow-y-auto',
             'rounded-lg border border-border bg-surface p-7 shadow-xl',
             'data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95',
             'data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95',

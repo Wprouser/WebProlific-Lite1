@@ -12,7 +12,9 @@
     "close": "बंद करें",
     "moreActions": "अधिक क्रियाएं",
     "switchToLightMode": "लाइट मोड पर स्विच करें",
-    "switchToDarkMode": "डार्क मोड पर स्विच करें"
+    "switchToDarkMode": "डार्क मोड पर स्विच करें",
+    "logout": "लॉग आउट करें",
+    "unknownUser": "साइन इन किया गया"
   },
   "export": {
     "menuItemSuffix": "(यहां निर्यात करने के लिए कुछ नहीं है)",
@@ -22,6 +24,8 @@
     "dashboard": "डैशबोर्ड",
     "items": "आइटम",
     "stock": "स्टॉक",
+    "taxes": "कर",
+    "currency": "मुद्रा",
     "suppliers": "आपूर्तिकर्ता",
     "reports": "रिपोर्ट",
     "users": "उपयोगकर्ता",
@@ -170,6 +174,7 @@
     "subtitle": "अपने आउटलेट की आइटम सूची और श्रेणियां प्रबंधित करें",
     "addItem": "आइटम जोड़ें",
     "manageCategories": "श्रेणियां प्रबंधित करें",
+    "manageTaxRates": "कर दरें",
     "searchPlaceholder": "नाम या SKU से खोजें…",
     "loadError": "आइटम लोड नहीं हो सके",
     "filters": {
@@ -203,6 +208,9 @@
     "form": {
       "createTitle": "आइटम जोड़ें",
       "editTitle": "आइटम संपादित करें",
+      "sectionBasics": "बुनियादी जानकारी",
+      "sectionStock": "स्टॉक और मूल्य निर्धारण",
+      "sectionAdditional": "अतिरिक्त विवरण",
       "name": "नाम",
       "namePlaceholder": "उदा. बासमती चावल",
       "category": "श्रेणी",
@@ -218,15 +226,22 @@
       "shelfLifeDays": "शेल्फ लाइफ (दिन)",
       "storageLocation": "भंडारण स्थान",
       "storageLocationPlaceholder": "वैकल्पिक",
+      "defaultSupplierId": "डिफ़ॉल्ट आपूर्तिकर्ता",
+      "defaultSupplierIdPlaceholder": "वैकल्पिक",
+      "purchaseGLAccount": "खरीद जीएल खाता",
+      "purchaseGLAccountPlaceholder": "वैकल्पिक — केवल लेखांकन एक्सपोर्ट के लिए",
+      "defaultTaxRateId": "डिफ़ॉल्ट कर दर",
+      "defaultTaxRateIdPlaceholder": "वैकल्पिक",
+      "defaultTaxRateIdInactiveOption": "{{name}} (निष्क्रिय)",
+      "openingStockTitle": "प्रारंभिक स्टॉक",
+      "openingStockHint": "केवल निर्माण के समय एक बार दर्ज किया जाता है — बाद में यहां संपादित नहीं किया जा सकता।",
+      "openingQuantity": "मात्रा",
+      "openingRatePerUnit": "प्रति इकाई दर",
       "cancel": "रद्द करें",
       "save": "आइटम सहेजें",
       "saving": "सहेजा जा रहा है…",
       "errorMinMax": "न्यूनतम स्टॉक अधिकतम स्टॉक से कम होना चाहिए",
-      "saveError": "सेव नहीं हो सका। कृपया फिर से कोशिश करें।",
-      "deactivate": "निष्क्रिय करें",
-      "deactivating": "निष्क्रिय हो रहा है…",
-      "confirmDeactivate": "इस आइटम को निष्क्रिय करें?",
-      "confirmYes": "हां, निष्क्रिय करें"
+      "saveError": "सेव नहीं हो सका। कृपया फिर से कोशिश करें।"
     },
     "categoryManager": {
       "title": "श्रेणियां प्रबंधित करें",
@@ -242,6 +257,249 @@
       "BOX": "बॉक्स",
       "GRAM": "ग्राम (g)",
       "ML": "मिलीलीटर (ml)"
+    },
+    "detail": {
+      "back": "आइटम पर वापस जाएं",
+      "loadError": "यह आइटम लोड नहीं हो सका",
+      "notFound": "आइटम नहीं मिला",
+      "edit": "संपादित करें",
+      "adjustStock": "स्टॉक समायोजित करें",
+      "more": "अधिक",
+      "clone": "आइटम क्लोन करें",
+      "markInactive": "निष्क्रिय के रूप में चिह्नित करें",
+      "reactivate": "पुनः सक्रिय करें",
+      "manageCategories": "श्रेणियां प्रबंधित करें",
+      "confirmDeactivate": "इस आइटम को निष्क्रिय करें?",
+      "confirmReactivate": "इस आइटम को पुनः सक्रिय करें?",
+      "confirmYes": "हां",
+      "cancel": "रद्द करें",
+      "deactivating": "निष्क्रिय हो रहा है…",
+      "reactivating": "पुनः सक्रिय हो रहा है…",
+      "currentStock": "वर्तमान स्टॉक",
+      "stockValue": "स्टॉक मूल्य",
+      "openingStock": "प्रारंभिक स्टॉक",
+      "tabs": {
+        "overview": "अवलोकन",
+        "transactions": "लेनदेन",
+        "history": "इतिहास"
+      },
+      "overview": {
+        "category": "श्रेणी",
+        "unit": "इकाई",
+        "reorderPoint": "पुनः ऑर्डर बिंदु (न्यूनतम / अधिकतम)",
+        "shelfLifeDays": "शेल्फ लाइफ",
+        "shelfLifeDaysValue_one": "{{count}} दिन",
+        "shelfLifeDaysValue_other": "{{count}} दिन",
+        "storageLocation": "भंडारण स्थान",
+        "costPrice": "लागत मूल्य",
+        "defaultSupplier": "डिफ़ॉल्ट आपूर्तिकर्ता",
+        "defaultTaxRate": "डिफ़ॉल्ट कर दर",
+        "purchaseGLAccount": "खरीद जीएल खाता",
+        "images": "छवियां",
+        "uploadImage": "छवि अपलोड करें",
+        "uploading": "अपलोड हो रहा है…",
+        "uploadError": "यह छवि अपलोड नहीं हो सकी",
+        "noImages": "अभी तक कोई छवि नहीं",
+        "primaryBadge": "प्राथमिक",
+        "setPrimary": "प्राथमिक के रूप में सेट करें",
+        "deleteImage": "हटाएं"
+      },
+      "history": {
+        "empty": "अभी तक कोई इतिहास नहीं",
+        "loadError": "इतिहास लोड नहीं हो सका",
+        "restricted": "इस आइटम का इतिहास देखने की आपको अनुमति नहीं है"
+      },
+      "cloneDialog": {
+        "title": "आइटम क्लोन करें",
+        "description": "इस आइटम से पहले से भरा हुआ एक नया आइटम बनाता है। स्टॉक और प्रारंभिक शेष कभी कॉपी नहीं होते।",
+        "newSku": "नया SKU",
+        "newSkuPlaceholder": "उदा. RICE-BAS-002",
+        "cancel": "रद्द करें",
+        "clone": "क्लोन करें",
+        "cloning": "क्लोन हो रहा है…",
+        "error": "यह आइटम क्लोन नहीं हो सका"
+      }
+    }
+  },
+  "stock": {
+    "title": "स्टॉक लेनदेन",
+    "subtitle": "स्टॉक की आवाजाही दर्ज करें और लेनदेन इतिहास देखें",
+    "recordTransaction": "लेनदेन दर्ज करें",
+    "loadError": "स्टॉक लेनदेन लोड नहीं हो सके",
+    "filters": {
+      "allItems": "सभी आइटम",
+      "allTypes": "सभी प्रकार",
+      "dateFrom": "से",
+      "dateTo": "तक"
+    },
+    "table": {
+      "date": "तारीख",
+      "item": "आइटम",
+      "type": "प्रकार",
+      "quantity": "मात्रा",
+      "balanceAfter": "शेष स्टॉक",
+      "reasonCode": "कारण"
+    },
+    "types": {
+      "PURCHASE_IN": "खरीद प्राप्ति",
+      "OPENING_BALANCE": "प्रारंभिक शेष",
+      "TRANSFER_IN": "स्थानांतरण प्राप्ति",
+      "ADJUSTMENT_IN": "समायोजन (वृद्धि)",
+      "USAGE_OUT": "उपयोग",
+      "WASTAGE_OUT": "बर्बादी",
+      "TRANSFER_OUT": "स्थानांतरण भेजा गया",
+      "ADJUSTMENT_OUT": "समायोजन (कमी)"
+    },
+    "reasonCodes": {
+      "EXPIRED": "एक्सपायर",
+      "DAMAGED": "क्षतिग्रस्त",
+      "SPILLED": "गिर गया",
+      "OVER_PREPARED": "अधिक तैयार हुआ"
+    },
+    "empty": {
+      "title": "आपके फ़िल्टर से मेल खाने वाला कोई लेनदेन नहीं",
+      "description": "अपनी खोज या फ़िल्टर बदलकर देखें।",
+      "action": "लेनदेन दर्ज करें"
+    },
+    "form": {
+      "title": "स्टॉक लेनदेन दर्ज करें",
+      "item": "आइटम",
+      "itemPlaceholder": "एक आइटम चुनें",
+      "type": "लेनदेन प्रकार",
+      "quantity": "मात्रा",
+      "reasonCode": "कारण",
+      "reasonCodePlaceholder": "एक कारण चुनें",
+      "forceOverride": "स्टॉक नकारात्मक होने पर भी अनुमति दें",
+      "forceOverrideHint": "केवल मैनेजर के लिए — अन्य भूमिकाओं पर कोई असर नहीं।",
+      "cancel": "रद्द करें",
+      "save": "लेनदेन दर्ज करें",
+      "saving": "दर्ज हो रहा है…",
+      "errorReasonRequired": "बर्बादी के लिए कारण आवश्यक है",
+      "saveError": "यह लेनदेन दर्ज नहीं हो सका। कृपया फिर से कोशिश करें।"
+    }
+  },
+  "taxRates": {
+    "back": "आइटम पर वापस जाएं",
+    "title": "कर विन्यास",
+    "subtitle": "आइटम, खरीद आदेश और GRN में साझा की जाने वाली कर दरें प्रबंधित करें",
+    "addTaxRate": "कर दर जोड़ें",
+    "loadError": "कर दरें लोड नहीं हो सकीं",
+    "table": {
+      "name": "नाम",
+      "rate": "दर",
+      "type": "प्रकार",
+      "status": "स्थिति"
+    },
+    "type": {
+      "simple": "सरल",
+      "split": "विभाजित"
+    },
+    "status": {
+      "active": "सक्रिय",
+      "inactive": "निष्क्रिय"
+    },
+    "countries": {
+      "saudiArabia": "सऊदी अरब",
+      "uae": "संयुक्त अरब अमीरात",
+      "india": "भारत"
+    },
+    "edit": "संपादित करें",
+    "deactivate": "निष्क्रिय करें",
+    "deactivating": "निष्क्रिय हो रहा है…",
+    "confirmDeactivate": "\"{{name}}\" को निष्क्रिय करें? यह नए चयन के लिए विकल्प के रूप में अब दिखाई नहीं देगी।",
+    "confirmLastActive": "\"{{name}}\" अंतिम सक्रिय कर दर है — इसे निष्क्रिय करने से आउटलेट के पास कोई सक्रिय कर दर नहीं रहेगी। जारी रखें?",
+    "confirmYes": "हां, निष्क्रिय करें",
+    "cancel": "रद्द करें",
+    "empty": {
+      "title": "अभी तक कोई कर दर नहीं",
+      "description": "आइटम, खरीद आदेश और GRN में चुनने योग्य बनाने के लिए अपने आउटलेट की कर दरें जोड़ें।"
+    },
+    "form": {
+      "createTitle": "कर दर जोड़ें",
+      "editTitle": "कर दर संपादित करें",
+      "name": "नाम",
+      "namePlaceholder": "उदा. VAT 15%",
+      "country": "देश",
+      "countryPlaceholder": "कोई नहीं",
+      "compoundToggle": "संयुक्त कर?",
+      "compoundToggleHint": "भारत के CGST + SGST या IGST जैसे कई घटकों में विभाजित करों के लिए इसे चालू करें।",
+      "componentsTitle": "घटक",
+      "componentName": "घटक का नाम",
+      "componentNamePlaceholder": "उदा. CGST",
+      "componentRate": "दर (%)",
+      "addComponent": "घटक जोड़ें",
+      "removeComponent": "घटक हटाएं",
+      "autoSumHint": "कुल दर स्वतः घटकों के योग के रूप में गणना की जाती है।",
+      "ratePercent": "दर (%)",
+      "activeToggle": "सक्रिय",
+      "cancel": "रद्द करें",
+      "save": "सहेजें",
+      "saving": "सहेजा जा रहा है…",
+      "saveError": "सेव नहीं हो सका। कृपया फिर से कोशिश करें।",
+      "permissionError": "आपके पास यह बदलाव करने की अनुमति नहीं है।"
+    },
+    "breakdown": {
+      "tax": "{{amount}}"
+    },
+    "preview": {
+      "action": "पूर्वावलोकन",
+      "title": "पूर्वावलोकन: {{name}}",
+      "description": "एक नमूना राशि पर यह कर दर कैसे लागू होती है इसकी गणना करें — यह वास्तविक लेन-देन नहीं है।",
+      "subtotal": "उप-योग",
+      "calculate": "गणना करें",
+      "calculating": "गणना हो रही है…",
+      "net": "नेट",
+      "taxLabel": "कर",
+      "gross": "कुल",
+      "error": "गणना नहीं हो सकी। कृपया फिर से कोशिश करें।"
+    }
+  },
+  "currency": {
+    "title": "मुद्रा और विनिमय दरें",
+    "subtitle": "इस आउटलेट की आधार मुद्रा और विदेशी-मुद्रा खरीद को बदलने के लिए उपयोग की जाने वाली विनिमय दरें",
+    "loadError": "मुद्रा सेटिंग्स लोड नहीं हो सकीं",
+    "baseCurrencySection": {
+      "title": "इस आउटलेट की आधार मुद्रा",
+      "change": "आधार मुद्रा बदलें"
+    },
+    "ratesSection": {
+      "title": "विनिमय दरें",
+      "subtitle": "दरें ऐतिहासिक हैं — नई दर सहेजने से पुरानी दर कभी संपादित नहीं होती; हमेशा नवीनतम दर का उपयोग होता है",
+      "addRate": "दर जोड़ें",
+      "empty": {
+        "title": "अभी तक कोई विनिमय दर नहीं",
+        "description": "विदेशी-मुद्रा खरीद को इस आउटलेट की आधार मुद्रा में बदलने के लिए एक दर जोड़ें।"
+      }
+    },
+    "table": {
+      "baseCurrency": "आधार मुद्रा",
+      "targetCurrency": "लक्ष्य मुद्रा",
+      "rate": "दर",
+      "effectiveDate": "प्रभावी तिथि",
+      "source": "स्रोत"
+    },
+    "source": {
+      "manual": "मैनुअल",
+      "api": "API"
+    },
+    "changeBaseCurrency": {
+      "title": "आधार मुद्रा बदलें",
+      "description": "यह अत्यधिक प्रतिबंधित है — जैसे ही इस आउटलेट का कोई लेन-देन इतिहास होगा, यह अस्वीकार कर दिया जाएगा, क्योंकि बाद में इसे बदलने से ऐतिहासिक मूल्यांकन रिपोर्टिंग अमान्य हो जाएगी।"
+    },
+    "rateForm": {
+      "title": "विनिमय दर जोड़ें"
+    },
+    "form": {
+      "baseCurrency": "आधार मुद्रा",
+      "targetCurrency": "लक्ष्य मुद्रा",
+      "targetCurrencyPlaceholder": "एक मुद्रा चुनें",
+      "rate": "दर",
+      "ratePlaceholder": "उदा. 0.266667",
+      "cancel": "रद्द करें",
+      "save": "सहेजें",
+      "saving": "सहेजा जा रहा है…",
+      "saveError": "सेव नहीं हो सका। कृपया फिर से कोशिश करें।",
+      "permissionError": "आपके पास यह बदलाव करने की अनुमति नहीं है।"
     }
   }
 }

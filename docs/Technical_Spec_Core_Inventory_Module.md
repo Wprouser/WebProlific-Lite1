@@ -145,6 +145,11 @@ Cache the resolved `effectiveOutletIds` per request (not per login session) so r
 ## FR-01: Item Master Management
 
 ### Data Model (Prisma schema)
+
+**Deliberately excluded fields** (common in general/retail inventory tools, but not relevant to F&B/hospitality raw-material inventory): Dimensions, Weight, Manufacturer, Brand, UPC, MPN, EAN, ISBN. These are product-catalog/e-commerce concepts for items resold as-is to end consumers — they don't apply to raw ingredients and supplies procured in bulk by weight/volume/count for internal kitchen/store use. Do not add them.
+
+**Also deliberately excluded from Item Master specifically:** Selling Price / Sales Account / Sales-side Tax. An `Item` in this system is a raw ingredient or supply — it is never sold directly to a customer, so it has no selling price of its own. The concept of "what a customer pays" belongs entirely to `MenuItem`/`Recipe` (FR-05), which derives its cost from the Items consumed in its recipe. Do not add sales-side fields to `Item` — this is a meaningful distinction from general-purpose inventory tools (like the reference screenshots), which conflate "things you stock" with "things you sell." In this system those are two different entities.
+
 ```prisma
 model Item {
   id              String   @id @default(uuid())
@@ -156,11 +161,13 @@ model Item {
   sku             String   @unique
   barcode         String?  @unique
   unit            Unit     // enum: KG, LITRE, PIECE, BOX, GRAM, ML
-  minStock        Decimal  @db.Decimal(10,3)
+  minStock        Decimal  @db.Decimal(10,3)   // "Reorder Point" in UI copy
   maxStock        Decimal  @db.Decimal(10,3)
   currentStock    Decimal  @db.Decimal(10,3) @default(0)  // denormalized, updated via StockTransaction
   shelfLifeDays   Int?
-  costPrice       Decimal  @db.Decimal(12,2)
+  costPrice       Decimal  @db.Decimal(12,2)   // current/latest cost, used for stock valuation (FR-10) — see SupplierPriceHistory (FR-03) for cost trend over time
+  purchaseGLAccount String?  // optional free-text or lookup value (e.g., "Cost of Goods Sold", "Inventory Asset") for accounting-export purposes — no GL/ledger logic is implemented in-app; this is metadata carried through on exports for the outlet's external accounting system
+  defaultTaxRateId String?  // optional FK to TaxRate (FR-04) — pre-fills tax on PO/GRN lines for this item, always editable per-line at the time of the actual transaction
   defaultSupplierId String?
   storageLocation String?
   isActive        Boolean  @default(true)
@@ -171,6 +178,17 @@ model Item {
   @@index([categoryId])
 }
 
+model ItemImage {
+  id        String   @id @default(uuid())
+  itemId    String
+  url       String   // object-storage URL
+  isPrimary Boolean  @default(false)   // exactly one image per item may be primary — enforced in service logic, not a DB constraint
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([itemId])
+}
+
 model Category {
   id       String @id @default(uuid())
   name     String
@@ -179,20 +197,26 @@ model Category {
 }
 ```
 
+**On the reference screenshots' "Inventory Valuation Method" (FIFO) and "Committed Stock" concepts:** both are deliberately **not** built in this pass. FIFO/weighted-average costing requires lot/batch-level cost tracking (knowing which specific batch of stock is being consumed, at what cost, in what order) — a meaningful scope increase over the single denormalized `costPrice` this spec uses. "Committed Stock" (stock reserved against a pending sales order) doesn't apply here, since this system doesn't take customer orders — it's an internal kitchen/store tool, not a sales/e-commerce platform. Both are reasonable *future* enhancements if the product ever needs precise cost-layer accounting, but are explicitly out of scope for FR-01 — don't build them now.
+
 ### API Endpoints
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `POST` | `/items` | Create item |
+| `POST` | `/items` | Create item (optionally with opening stock — see below) |
 | `GET` | `/items` | List items (filters: `categoryId`, `isActive`, `search`, `belowMinStock=true`) |
 | `GET` | `/items/:id` | Get item detail |
 | `PATCH` | `/items/:id` | Update item |
-| `DELETE` | `/items/:id` | Soft-delete (sets `isActive=false`) |
+| `DELETE` | `/items/:id` | Soft-delete / deactivate (sets `isActive=false`) — labeled **"Mark as Inactive"** in the UI, never "Delete," to avoid implying data loss |
+| `POST` | `/items/:id/clone` | Create a new item pre-filled from an existing one (name suffixed "(Copy)," SKU cleared for the user to set) — a convenience shortcut, not a distinct data concept |
 | `POST` | `/items/bulk-import` | CSV/Excel bulk import (multipart file upload) |
 | `GET` | `/items/categories` | List categories |
 | `POST` | `/items/categories` | Create category |
+| `POST` | `/items/:id/images` | Upload an item image (multipart) — first image uploaded is automatically marked primary |
+| `PATCH` | `/items/:id/images/:imageId/primary` | Mark a different image as primary |
+| `DELETE` | `/items/:id/images/:imageId` | Remove an image |
 
-**POST /items — Request:**
+**POST /items — Request** (opening stock is optional, captured at creation time rather than as a separate manual stock-in step):
 ```json
 {
   "name": "Basmati Rice",
@@ -204,23 +228,32 @@ model Category {
   "maxStock": 100,
   "shelfLifeDays": 365,
   "costPrice": 85.50,
+  "purchaseGLAccount": "Cost of Goods Sold",
+  "defaultTaxRateId": "uuid-or-null",
   "defaultSupplierId": "uuid",
-  "storageLocation": "Dry Store"
+  "storageLocation": "Dry Store",
+  "openingStock": { "quantity": 25, "ratePerUnit": 85.50 }
 }
 ```
-**Response 201:** full Item object including generated `id`, `currentStock: 0`.
+**Response 201:** full Item object including generated `id`. If `openingStock` was provided, `currentStock` reflects that quantity immediately (the service creates a `StockTransaction` with `type: OPENING_BALANCE` — per FR-02 — as part of the same request, not a follow-up call the frontend has to remember to make); if omitted, `currentStock: 0`.
 
-### Validation Rules
-- `name`: required, 2–120 chars
-- `sku`: required, unique per tenant, alphanumeric + hyphens
-- `minStock < maxStock` → else `400`
-- `unit`: must be a valid enum value
-- `costPrice >= 0`
-- Duplicate `barcode` within same outlet → `409 Conflict`
+### Item Detail Screen
+
+Restructured as a dedicated detail view (not just an edit form) — reference: the tabbed detail-page pattern with a right-hand stock summary panel, adapted to this system's simpler (no committed-stock/reservation) model.
+
+**Layout:**
+- **Header:** item name, SKU, primary image thumbnail, and an actions area: **Edit**, **Adjust Stock** (a shortcut into FR-02's stock transaction form, pre-filled with this item), and a **More** menu containing **Clone Item**, **Mark as Inactive** (or **Reactivate**, if already inactive), and **Manage Categories** shortcut. There is no "Delete" action anywhere in this UI — soft-deactivation is the only removal path, consistent with the spec's "items are never hard-deleted" rule.
+- **Tabs:**
+  - **Overview** — the item's master data: category, unit, reorder point (min/max stock), shelf life, storage location, cost price, default tax, default supplier, purchase GL account (if set), and the image gallery.
+  - **Transactions** — a filtered view of `StockTransaction` rows for this item specifically (reuses the FR-02 transaction list component, pre-filtered to `itemId`).
+  - **History** — this item's `TransactionLog` entries (FR-18) — the field-level change history (e.g., "Reorder point changed from 10 to 15 on [date]"), not the same data as the Transactions tab.
+- **Right-hand stock summary panel:** simplified from the reference (which splits Accounting Stock vs. Physical Stock with a Committed Stock line — not applicable here, since this system has no order-reservation concept). Shows just: **Current Stock** (`Item.currentStock`), **Stock Value** (`currentStock × costPrice`), and, if set, **Opening Stock** (the quantity/rate captured at item creation, kept visible as a reference point rather than only living inside transaction history).
 
 ### Business Logic
-- On soft-delete (`DELETE /items/:id`): check for any `PurchaseOrder` with status not in `[Closed, Cancelled, Rejected]` referencing this item → if found, return `409` with message "Cannot deactivate item with open purchase orders."
-- `currentStock` is **never** written directly via this endpoint — it is only ever mutated by the Stock Transaction service (FR-02) to preserve the single-source-of-truth invariant.
+- On soft-delete/deactivate (`DELETE /items/:id`): check for any `PurchaseOrder` with status not in `[Closed, Cancelled, Rejected]` referencing this item → if found, return `409` with message "Cannot deactivate item with open purchase orders."
+- `currentStock` is **never** written directly via this endpoint — it is only ever mutated by the Stock Transaction service (FR-02) to preserve the single-source-of-truth invariant. The one exception is `openingStock` at creation time, which internally calls the FR-02 service to create a proper `OPENING_BALANCE` transaction — the endpoint never writes `currentStock` as a raw field itself, even in that case.
+- **Clone Item:** copies all master-data fields (category, unit, min/max stock, cost price, default tax, default supplier, storage location) except `sku` (cleared — must be set by the user, since it must be unique) and `currentStock`/opening stock (the clone always starts at 0 — cloning an item definition is not the same as duplicating its stock).
+- **Image upload:** the first image uploaded for an item is automatically `isPrimary: true`; uploading subsequent images does not change the primary unless the user explicitly marks a different one via `PATCH /items/:id/images/:imageId/primary`. Deleting the current primary image, if other images exist, promotes the next-oldest remaining image to primary automatically rather than leaving the item with no primary image.
 - Bulk import: validate every row before committing any; return a per-row error report (`{row: 5, error: "duplicate SKU"}`) rather than partial success.
 
 ### Acceptance Criteria
@@ -228,8 +261,13 @@ model Category {
 - [ ] Cannot set `minStock >= maxStock`
 - [ ] Deactivating an item with an open PO returns 409, not silent failure
 - [ ] `GET /items?belowMinStock=true` returns only items where `currentStock < minStock`
+- [ ] Creating an item with `openingStock` produces a real `StockTransaction` (`OPENING_BALANCE`) via the FR-02 service, not a raw `currentStock` write
+- [ ] Cloning an item copies master data but never copies SKU or current stock
+- [ ] The item detail screen has no "Delete" action anywhere — only "Mark as Inactive" / "Reactivate"
+- [ ] Deleting the primary image (when other images exist) automatically promotes another image to primary, never leaving the item with zero primary images while images still exist
 
 ---
+
 
 ## FR-02: Stock-In / Stock-Out Transactions
 
@@ -401,49 +439,95 @@ model POLine {
   orderedQty        Decimal @db.Decimal(10,3)
   expectedPrice     Decimal @db.Decimal(12,2)   // unit price, excl. tax, in PO currency
   taxRateId         String?
-  taxRate           Decimal @db.Decimal(5,2) @default(0)   // percentage, e.g. 15.00 for 15% VAT — snapshotted at line creation
+  taxRate           Decimal @db.Decimal(5,2) @default(0)   // percentage, e.g. 15.00 for 15% VAT, or 18.00 for a compound GST rate — snapshotted at line creation
   lineSubtotal      Decimal @db.Decimal(12,2)   // orderedQty * expectedPrice
   lineTaxAmount     Decimal @db.Decimal(12,2)   // lineSubtotal * taxRate / 100
   lineTotal         Decimal @db.Decimal(12,2)   // lineSubtotal + lineTaxAmount
   receivedQty       Decimal @db.Decimal(10,3) @default(0)
+  taxComponents     POLineTaxComponent[]   // populated only if the applied TaxRate was compound (e.g. CGST+SGST); empty for a simple flat-rate tax
+}
+
+model POLineTaxComponent {
+  id            String  @id @default(uuid())
+  poLineId      String
+  componentName String  // e.g. "CGST", "SGST", "IGST" — snapshotted from TaxRateComponent.componentName at the time
+  componentRate Decimal @db.Decimal(5,2)   // snapshotted rate, e.g. 9.00
+  componentAmount Decimal @db.Decimal(12,2)  // computed amount for this component on this line — sum of all components equals POLine.lineTaxAmount
+
+  @@index([poLineId])
 }
 
 model GRN {
   id              String   @id @default(uuid())
-  purchaseOrderId String
+  outletId        String
+  purchaseOrderId String?  // nullable — a GRN can exist WITHOUT a PO (see "Direct GRN" below)
+  supplierId      String   // always required, whether or not a PO exists — if purchaseOrderId is set, this must match the PO's supplierId; if not, chosen directly on the GRN
   receivedById    String
   receivedAt      DateTime @default(now())
-  currencyCode    String   // inherited from PO, editable only if supplier invoiced in a different currency
+  currencyCode    String   // inherited from PO if linked, otherwise chosen directly on the GRN
   exchangeRateToBase Decimal @db.Decimal(12,6)
   subtotal        Decimal  @db.Decimal(12,2)
-  taxAmount       Decimal  @db.Decimal(12,2)
+  taxAmount       Decimal  @db.Decimal(12,2)   // 0 if no tax applied at all — tax is optional, see Business Logic
   totalValue      Decimal  @db.Decimal(12,2)
+  invoiceNumber   String?  // supplier's invoice/bill reference number, entered manually or extracted via scan
+  invoiceScanUrl  String?  // object-storage URL of the uploaded/scanned invoice image, if provided
+  invoiceScanStatus String? // 'NONE' | 'UPLOADED' | 'PROCESSING' | 'EXTRACTED' | 'FAILED' — tracks AI-04 OCR extraction state
   lines           GRNLine[]
   varianceFlagged Boolean  @default(false)
+
+  @@index([outletId, receivedAt])
+  @@index([supplierId])
 }
 
 model GRNLine {
   id            String  @id @default(uuid())
   grnId         String
   itemId        String
-  orderedQty    Decimal @db.Decimal(10,3)
+  orderedQty    Decimal? @db.Decimal(10,3)   // nullable — no "ordered" quantity exists for a Direct GRN with no PO
   receivedQty   Decimal @db.Decimal(10,3)
   actualPrice   Decimal @db.Decimal(12,2)   // unit price, excl. tax, as per supplier invoice
-  taxRateId     String?
+  taxRateId     String?  // nullable — tax is entirely optional per line, see Business Logic
   taxRate       Decimal @db.Decimal(5,2) @default(0)
   lineSubtotal  Decimal @db.Decimal(12,2)
-  lineTaxAmount Decimal @db.Decimal(12,2)
+  lineTaxAmount Decimal @db.Decimal(12,2)   // 0 when no tax rate is applied
   lineTotal     Decimal @db.Decimal(12,2)
+  taxComponents GRNLineTaxComponent[]   // populated only if the applied TaxRate was compound; empty for a simple flat-rate tax
+}
+
+model GRNLineTaxComponent {
+  id            String  @id @default(uuid())
+  grnLineId     String
+  componentName String  // e.g. "CGST", "SGST", "IGST" — snapshotted from TaxRateComponent.componentName at the time
+  componentRate Decimal @db.Decimal(5,2)
+  componentAmount Decimal @db.Decimal(12,2)  // sum of all components equals GRNLine.lineTaxAmount
+
+  @@index([grnLineId])
 }
 
 model TaxRate {
   id          String   @id @default(uuid())
   outletId    String
-  name        String    // e.g. "VAT 15%", "Zero-Rated", "GST 5%"
-  ratePercent Decimal   @db.Decimal(5,2)
-  isDefault   Boolean   @default(false)
+  name        String    // e.g. "VAT 15%", "GST 18% (Intra-state)", "GST 18% (Inter-state)", "Zero-Rated"
+  ratePercent Decimal   @db.Decimal(5,2)   // the total/effective rate — for compound rates, this equals the sum of all component rates, and is what's actually used to compute lineTaxAmount
+  isCompound  Boolean   @default(false)   // true for split taxes (GST-style); false for a simple single-rate tax (VAT-style)
+  isDefault   Boolean   @default(false)   // reserved for future use — see existing note; no functional effect on auto-applying tax
   isActive    Boolean   @default(true)
-  countryCode String?   // e.g. "SA", "AE", "IN" — for default suggestion by outlet locale
+  countryCode String?   // e.g. "SA", "AE", "IN" — for country-appropriate default suggestion
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  components  TaxRateComponent[]   // empty for isCompound: false; 1+ rows for isCompound: true
+
+  @@index([outletId, isActive])
+}
+
+model TaxRateComponent {
+  id           String  @id @default(uuid())
+  taxRateId    String
+  taxRate      TaxRate @relation(fields: [taxRateId], references: [id])
+  componentName String // e.g. "CGST", "SGST", "IGST" — free text, not a hardcoded enum, so this isn't India-specific at the schema level (e.g. Canada's GST+PST could use the same mechanism)
+  componentRate Decimal @db.Decimal(5,2)   // e.g. 9.00 — components must sum to exactly the parent TaxRate.ratePercent
+
+  @@index([taxRateId])
 }
 
 model Currency {
@@ -474,6 +558,9 @@ model ExchangeRate {
 | `PATCH` | `/purchase-orders/:id/reject` | → REJECTED, requires `reason` |
 | `PATCH` | `/purchase-orders/:id/send` | → SENT_TO_SUPPLIER |
 | `POST` | `/purchase-orders/:id/grn` | Create GRN against this PO (full or partial) |
+| `POST` | `/grn/direct` | Create a **standalone GRN with no linked PO** — supplier chosen directly, no ordered-quantity variance check applies |
+| `POST` | `/grn/:id/scan-invoice` | Upload a photo/PDF of the supplier invoice (multipart) — triggers AI-04 OCR extraction (see Business Logic) |
+| `GET` | `/grn/:id/scan-status` | Poll extraction status while OCR processing is in progress |
 | `GET` | `/purchase-orders` | List, filter by `status`, `supplierId`, `dateRange` |
 | `GET` | `/purchase-orders/:id` | Detail incl. GRN history |
 
@@ -500,30 +587,144 @@ Server computes and returns: `lineSubtotal`, `lineTaxAmount`, `lineTotal` per li
 }
 ```
 
+**POST /grn/direct — Request** (no PO — e.g., a walk-in market purchase, or a supplier delivery with no prior order):
+```json
+{
+  "supplierId": "uuid",
+  "currencyCode": "SAR",
+  "invoiceNumber": "INV-88213",
+  "lines": [
+    { "itemId": "uuid", "receivedQty": 5, "actualPrice": 92.00, "taxRateId": null }
+  ]
+}
+```
+Note `orderedQty` is simply absent from a Direct GRN line — there's nothing to compare received-vs-ordered against, so the variance-tolerance check (see Business Logic) does not apply to Direct GRNs at all, only to PO-linked ones. `taxRateId: null` is valid — tax is optional per line (see Business Logic).
+
+**POST /grn/:id/scan-invoice — Request:** multipart file upload (image or PDF of the supplier invoice).
+**Response 202** (processing is asynchronous, not synchronous with the upload):
+```json
+{ "grnId": "uuid", "scanStatus": "PROCESSING" }
+```
+**GET /grn/:id/scan-status — Response once complete:**
+```json
+{
+  "scanStatus": "EXTRACTED",
+  "extractedData": {
+    "invoiceNumber": "INV-88213",
+    "supplierNameGuess": "Al-Fahad Trading",
+    "lines": [
+      { "itemNameGuess": "Basmati Rice", "quantity": 20, "unitPrice": 87.00, "matchedItemId": "uuid-or-null" }
+    ]
+  }
+}
+```
+The frontend uses `extractedData` to **pre-fill** the GRN form — the user always reviews and confirms every field before submission; extracted data is never auto-submitted directly to `POST /grn/direct` or the PO-linked GRN endpoint without human confirmation. `matchedItemId` is null when the OCR'd item name couldn't be confidently matched to an existing `Item` — in that case the line is shown unmatched and the user picks the correct item manually (or creates a new one). This endpoint is the concrete implementation of the SDLC document's **AI-04 (Invoice/Bill OCR Auto-Entry)** feature; the underlying OCR call itself is an external vision/document-AI service, swapped in behind this endpoint rather than built from scratch.
+
 ### Additional Endpoints — Tax & Currency
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/tax-rates` | List configured tax rates for the outlet |
+| `GET` | `/tax-rates` | List tax rates for the outlet (filter: `isActive`) |
 | `POST` | `/tax-rates` | Create a tax rate (role: PROPERTY_MANAGER/CHAIN_OWNER) |
+| `PATCH` | `/tax-rates/:id` | Edit a tax rate's name/percentage (role: PROPERTY_MANAGER/CHAIN_OWNER) |
+| `DELETE` | `/tax-rates/:id` | Deactivate a tax rate (soft — sets `isActive: false`, never hard-deleted, consistent with the Item/Category deactivation pattern) |
 | `GET` | `/currencies` | List supported currencies |
 | `GET` | `/exchange-rates?base=&target=` | Latest exchange rate |
 | `POST` | `/exchange-rates` | Manually record/update a rate (or synced nightly from an FX API — see Business Logic) |
 
-### Business Logic
-- **Approval threshold:** configurable per outlet (`Outlet.poApprovalThreshold`); if `totalValue > threshold`, only `PROPERTY_MANAGER`-or-higher (i.e. `PROPERTY_MANAGER` or `CHAIN_OWNER`) can call `/approve` — a plain `OUTLET_MANAGER` cannot. **Note:** threshold comparison always converts `totalValue` to the outlet's base currency using the PO's snapshotted `exchangeRateToBase`, so thresholds stay consistent regardless of which currency a supplier bills in.
-- **Tax calculation (server-side, never trusted from client):**
-  1. For each line: `lineSubtotal = orderedQty * expectedPrice`; look up `taxRateId` → `ratePercent`; `lineTaxAmount = round(lineSubtotal * ratePercent / 100, 2)`; `lineTotal = lineSubtotal + lineTaxAmount`.
-  2. PO/GRN-level `subtotal = SUM(lineSubtotal)`, `taxAmount = SUM(lineTaxAmount)`, `totalValue = subtotal + taxAmount`.
-  3. If a line omits `taxRateId`, apply the outlet's `TaxRate` marked `isDefault: true`.
-  4. Reject with `400` if `taxRateId` references an inactive or non-existent tax rate.
-- **On GRN creation:**
+### Tax Configuration Screen — Standalone Management, Shared Across Item/PO/GRN
+
+Tax rates are **outlet-level shared reference data**, managed from their own dedicated screen (accessible from Settings, alongside Category management) rather than being buried inside any single feature — the same relationship Category management already has to the Item screen.
+
+**Two kinds of tax rate, both managed from the same screen:**
+- **Simple** (`isCompound: false`) — a single flat percentage. Covers most countries: Saudi/UAE VAT, most sales-tax jurisdictions. This is the only kind the original version of this spec supported.
+- **Compound** (`isCompound: true`) — a total rate made up of two or more named components that must sum to it. This is required for **India's GST**, which splits the same overall rate differently depending on whether a transaction is intra-state or inter-state:
+  - "GST 18% (Intra-state)" → components: CGST 9% + SGST 9%
+  - "GST 18% (Inter-state)" → components: IGST 18% (a single component, still modeled as "compound" for consistency, even though it's only one line)
+
+  **This system does not attempt to automatically detect intra- vs. inter-state** (that would require state-level address data on both the outlet and every supplier, plus jurisdiction logic — a real scope increase). Instead, **both variants are simply offered as separate selectable tax rates**, and the person creating the PO/GRN — who already knows whether this particular supplier is in the same state — picks the correct one manually, exactly the same way they'd pick between any two tax rates. This is a deliberate, pragmatic scope boundary: it gets GST correct on the invoice/document without requiring an address/jurisdiction engine.
+
+**Screen — Add/Edit Tax Rate form:**
+- Name, overall rate percentage — same as before, for a Simple rate.
+- A toggle: "This is a compound tax (e.g., GST with CGST/SGST/IGST)." When enabled, the form reveals a repeatable **components** section — each with its own name (free-text, e.g. "CGST") and rate percentage. The overall `ratePercent` field becomes **read-only, auto-computed as the sum of the components** (rather than entered separately and risking a mismatch) — this removes an entire class of data-entry error, since the total can never silently disagree with its parts.
+- List view: name, rate percentage, an indicator badge for compound rates (e.g., a small "CGST+SGST" or "Split" tag) so it's visually obvious at a glance which rates are simple vs. compound, active/inactive status, edit/deactivate actions per row.
+
+**Where it's consumed:**
+- **Item Master (FR-01):** the item's optional `defaultTaxRateId` dropdown, pre-filling PO/GRN lines for that item
+- **Purchase Orders (FR-04):** each PO line's `taxRateId` selector
+- **GRN — all three creation flows (FR-04):** each GRN line's `taxRateId` selector, whether pre-filled from a PO, entered manually on a Direct GRN, or reviewed/confirmed after invoice-scan extraction
+All three consume the exact same `GET /tax-rates` list — there is only one tax-rate configuration per outlet, not separate ones per screen.
+- **Wherever a PO/GRN line's tax is displayed** (the form itself, any printed/exported document, the Net/Tax/Gross summary): if the applied tax was compound, show the **itemized component breakdown** (e.g., "CGST 9%: SAR 18.00" / "SGST 9%: SAR 18.00"), not just a single lumped "Tax: SAR 36.00" line — for GST this itemization is a standard invoicing expectation, not a nice-to-have. For a simple tax rate, display exactly as before (a single tax line).
+
+**Country-aware default seeding — correcting an earlier gap:** the outlet-creation seeding logic (the same `outlet.created` event mechanism used for default Categories) must seed **starter tax rates appropriate to the outlet's country**, not the same Saudi-centric set (VAT 15%/Zero-Rated/Exempt) for every outlet regardless of location. Use the outlet's `Currency`/locale to infer a reasonable starting country (e.g., `SAR` → Saudi Arabia → seed VAT 15% + Zero-Rated; `INR` → India → seed the common GST slabs — e.g., "GST 5%," "GST 12%," "GST 18%," "GST 28%" — each as a compound rate with both an Intra-state (CGST+SGST split) and Inter-state (IGST) variant; `AED` → UAE → seed VAT 5%). This is a lookup table of standard rates per country, not a hardcoded single default — extensible the same way the `Currency`/`Language` registries are, so adding a new country's standard rates later is a data addition, not a code change.
+
+**Business Rules:**
+- **A compound tax rate's components must sum exactly to its `ratePercent`** — validated on save; reject with a clear error if they don't (e.g., "Components sum to 17.50%, but the tax rate is 18.00% — adjust the components to match").
+- Deactivating a tax rate does not affect any historical PO/GRN line that already used it — those lines (and their `taxComponents`, if compound) retain their snapshotted values independently of whether the `TaxRate` row is later deactivated or edited. Only *new* selections are affected.
+- Editing a tax rate's `ratePercent` or its components only affects **future** lines — it does not retroactively recalculate any already-saved PO/GRN line's `lineTaxAmount` or `taxComponents`, since those were computed and snapshotted at the time of that transaction.
+- `ratePercent` (and each component's rate) must be `>= 0` and `<= 100`.
+- Cannot deactivate the last remaining *active* tax rate if doing so would leave the outlet with zero active rates — not a hard block, just a confirmation warning, since "no active tax rates" is a valid state but worth flagging in case it's accidental.
+
+### Acceptance Criteria (Tax Configuration)
+- [ ] Tax rates are managed from one standalone screen, not duplicated or reconfigured separately per feature
+- [ ] A compound tax rate (e.g., GST) can be created with two or more named components, and the overall rate is auto-computed as their sum, never entered independently
+- [ ] Saving a compound tax rate whose components don't sum to the stated overall rate is rejected with a clear error
+- [ ] Applying a compound tax rate to a PO/GRN line produces itemized component amounts (`POLineTaxComponent`/`GRNLineTaxComponent`), and the line/document display shows each component separately (e.g., "CGST 9%, SGST 9%"), not a single lumped tax figure
+- [ ] Both an Intra-state (CGST+SGST) and Inter-state (IGST) variant are available as separate selectable tax rates for an Indian-locale outlet — the system does not attempt automatic state detection
+- [ ] Default tax-rate seeding on outlet creation is country-appropriate (e.g., an INR-currency outlet seeds GST slabs with Intra/Inter-state variants, not a Saudi VAT set)
+- [ ] The same tax-rate list populates the dropdown identically on Item Master, PO lines, and all three GRN creation flows
+- [ ] Deactivating a tax rate removes it from future dropdown selections but does not alter any historical PO/GRN line (or its component breakdown) that already used it
+- [ ] Editing a tax rate's percentage or components does not retroactively change any already-saved transaction's tax amount
+
+### GRN Creation Flows — Three Entry Paths, One Screen
+
+The GRN screen supports exactly three ways to start creating a GRN. All three converge on the same review-and-confirm form and the same underlying `GRN`/`GRNLine` records — they differ only in **how the form gets pre-filled**, not in what gets saved.
+
+**Flow 1 — Direct GRN (no PO):** User selects a supplier directly, then manually adds line items (item, quantity, price), with tax optionally applied per line. Uses `POST /grn/direct`. No ordered-quantity comparison applies, since nothing was pre-ordered.
+
+**Flow 2 — Against a PO:** User selects an open PO (filtered to `APPROVED`, `SENT_TO_SUPPLIER`, or `PARTIALLY_RECEIVED` status, for that PO's supplier). Selecting the PO **auto-populates the GRN's lines** from `POLine` — item, ordered quantity, expected price, and tax rate all carry over as defaults. The user then adjusts **received quantity** (may differ from ordered), and can either **accept the tax/price carried over from the PO** or **override it** per line (e.g., the supplier's actual invoice shows a different price or tax treatment than originally quoted) — both are valid; the GRN's saved values are whatever the user confirms, whether that's the PO's defaults untouched or an explicit override. Uses `POST /purchase-orders/:id/grn`.
+
+**Flow 3 — Scan Invoice:** User uploads a photo/PDF of the supplier's invoice. OCR extraction (`POST /grn/:id/scan-invoice`) attempts to identify: **the vendor** (fuzzy-matched against existing `Supplier` records — if matched, pre-selected; if not confidently matched, the user is prompted to pick or create the supplier, since a GRN can never be saved without one), **line items** (fuzzy-matched against `Item` records the same way items are matched — see below), and **tax details**, if the invoice shows any. All of this pre-fills the same review form as Flows 1/2 — nothing is ever saved automatically from a scan. A scanned invoice can be used to create either a Direct GRN or, if the user recognizes it corresponds to an existing PO, linked to that PO instead (the user makes this choice after reviewing the extracted data, before confirming).
+
+**Hard rule across all three flows: a GRN can never be saved without a supplier.** This isn't just a UI validation — `GRN.supplierId` is a required, non-nullable field at the schema level (see Data Model above), so it's enforced server-side regardless of which of the three flows was used to get there.
+
+**GRN amount display — Net, Tax, and Gross, shown clearly on both the line level and the GRN total:**
+- **Net Amount** = `subtotal` (sum of line amounts before tax)
+- **Tax Amount** = `taxAmount` (sum of line tax amounts — `0` if no tax was applied to any line, per the optional-tax rule above)
+- **Gross Amount** = `totalValue` (`subtotal + taxAmount`) — this is the final payable amount
+These three figures must always be visibly labeled as **Net / Tax / Gross** on the GRN screen (not just "Subtotal/Tax/Total," to match standard invoicing terminology suppliers and accountants expect), both as a running total at the top/bottom of the GRN form and, where space allows, per line.
+
+### Business Logic **Note:** threshold comparison always converts `totalValue` to the outlet's base currency using the PO's snapshotted `exchangeRateToBase`, so thresholds stay consistent regardless of which currency a supplier bills in.
+- **Tax calculation is entirely optional, per line (server-side, never trusted from client):**
+  1. For each line: `lineSubtotal = orderedQty (or receivedQty for Direct GRN) * price`.
+  2. If `taxRateId` is provided: look up its `ratePercent`; `lineTaxAmount = round(lineSubtotal * ratePercent / 100, 2)`; `lineTotal = lineSubtotal + lineTaxAmount`.
+  3. **If `taxRateId` is omitted or explicitly `null`, the line is untaxed** — `taxRate: 0`, `lineTaxAmount: 0`, `lineTotal = lineSubtotal`. This is a valid, first-class state, not an error — many items/suppliers are legitimately tax-exempt or the outlet may not track tax at the line level at all. Do **not** silently fall back to the outlet's default tax rate when `taxRateId` is omitted — that "apply default if missing" behavior from earlier in this FR is replaced by this simpler rule: no `taxRateId` means no tax, full stop. (This supersedes the earlier "apply the outlet's default TaxRate" fallback described below — tax must be an explicit, deliberate choice per line, not an assumed default.)
+  4. PO/GRN-level `subtotal = SUM(lineSubtotal)`, `taxAmount = SUM(lineTaxAmount)`, `totalValue = subtotal + taxAmount`.
+  5. Reject with `400` only if a **provided** `taxRateId` references an inactive or non-existent tax rate — omitting it entirely is never an error.
+- **Direct GRN (no PO):** created via `POST /grn/direct` with `supplierId` chosen directly. There is no `orderedQty` to compare against, so the variance-tolerance check below **does not apply** — a Direct GRN is, by definition, "whatever was actually received," not a check against an order. It still creates `StockTransaction` (`PURCHASE_IN`) and `SupplierPriceHistory` rows exactly like a PO-linked GRN, and still participates fully in FR-18 logging.
+- **On PO-linked GRN creation:**
   1. For each line, validate `receivedQty <= (orderedQty - alreadyReceivedQty)`.
   2. If `abs(receivedQty - orderedQty) / orderedQty > toleranceConfig` (default 10%) → set `varianceFlagged = true` and require `OUTLET_MANAGER`-or-higher approval before proceeding (`403` for `STORE_STAFF` role attempting to finalize a variance GRN).
   3. Create a `StockTransaction` (`type: PURCHASE_IN`) per line via the FR-02 service — never write to `Item.currentStock` directly here. Stock quantity is unaffected by currency/tax — only the value fields are.
   4. Create a `SupplierPriceHistory` row per line (`source: 'GRN'`), storing `actualPrice` in the GRN's currency plus its base-currency equivalent (`actualPrice * exchangeRateToBase`) so cross-supplier price comparisons (AI-09) remain valid even when suppliers invoice in different currencies.
   5. Update `POLine.receivedQty`. Recompute PO status: all lines fully received → `FULLY_RECEIVED`; some received → `PARTIALLY_RECEIVED`.
 - PO can be manually moved to `CLOSED` from `PARTIALLY_RECEIVED` (accepting short delivery as final) by OUTLET_MANAGER, PROPERTY_MANAGER, or CHAIN_OWNER.
+- **Invoice scanning (AI-04):**
+  1. `POST /grn/:id/scan-invoice` accepts the uploaded file, stores it (object storage), sets `invoiceScanStatus: 'UPLOADED'`, then dispatches to an OCR/document-AI service asynchronously (`PROCESSING`).
+  2. On completion, extracted line items are fuzzy-matched against existing `Item` records by name/SKU where possible (`matchedItemId`); unmatched lines are returned as-is for manual mapping. Status becomes `EXTRACTED`, or `FAILED` with a reason if the scan couldn't be processed (blurry image, unsupported format, etc.).
+  3. **Extracted data always pre-fills the GRN form for human review — it is never submitted directly.** The user can edit any extracted field (quantity, price, matched item, tax) before confirming. This matches the SDLC document's stated design principle for AI features generally: recommend and pre-fill, never auto-commit financial/stock data without a human confirming it.
+  4. Invoice scanning is available for **both** PO-linked and Direct GRNs — it doesn't require a PO to exist.
 - **Exchange rate sourcing:** for MVP, rates are entered manually by PROPERTY_MANAGER/CHAIN_OWNER (simple table, updated as needed). Phase 2+ can sync nightly from an FX rate API (e.g., exchangerate.host) into the `ExchangeRate` table via a scheduled job — the PO/GRN creation logic doesn't change either way, it just reads the latest row.
+
+### Acceptance Criteria (GRN additions)
+- [ ] A GRN can be created with no linked Purchase Order (`POST /grn/direct`), with the supplier chosen directly on the GRN itself
+- [ ] Selecting a PO on the GRN screen auto-populates all its lines (item, ordered qty, expected price, tax) as editable defaults — the user can accept them as-is or override any field before confirming
+- [ ] A line with no `taxRateId` produces a valid, untaxed line (`lineTaxAmount: 0`) — this is never rejected as invalid, and no default tax rate is silently applied
+- [ ] A line with an invalid/inactive `taxRateId` is rejected with `400`; omitting `taxRateId` entirely is never rejected
+- [ ] Direct GRNs never trigger the PO variance-tolerance check, since there is no ordered quantity to compare against
+- [ ] Uploading a supplier invoice via `POST /grn/:id/scan-invoice` produces extracted data — vendor, items, and tax if present — that pre-fills but never auto-submits the GRN form; the user must explicitly confirm before the GRN is created, including explicitly confirming or selecting the vendor if it wasn't confidently matched
+- [ ] Invoice scanning works identically whether or not the GRN is linked to a PO
+- [ ] **A GRN cannot be saved without a supplier, under any of the three creation flows** — enforced at the API/schema level, not just as a frontend form validation
+- [ ] The GRN screen clearly displays **Net Amount, Tax Amount, and Gross Amount** using those exact labels, both as running totals and (where space allows) per line
 
 ### Acceptance Criteria (Tax & Currency additions)
 - [ ] Tax amounts are always computed server-side from `taxRateId`, never accepted as a raw number from the client

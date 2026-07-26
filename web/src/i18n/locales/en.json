@@ -12,7 +12,9 @@
     "close": "Close",
     "moreActions": "More actions",
     "switchToLightMode": "Switch to light mode",
-    "switchToDarkMode": "Switch to dark mode"
+    "switchToDarkMode": "Switch to dark mode",
+    "logout": "Log out",
+    "unknownUser": "Signed in"
   },
   "export": {
     "menuItemSuffix": "(nothing to export here)",
@@ -22,6 +24,8 @@
     "dashboard": "Dashboard",
     "items": "Items",
     "stock": "Stock",
+    "taxes": "Taxes",
+    "currency": "Currency",
     "suppliers": "Suppliers",
     "reports": "Reports",
     "users": "Users",
@@ -170,6 +174,7 @@
     "subtitle": "Manage your outlet's item master and categories",
     "addItem": "Add item",
     "manageCategories": "Manage categories",
+    "manageTaxRates": "Tax rates",
     "searchPlaceholder": "Search by name or SKU…",
     "loadError": "Couldn't load items",
     "filters": {
@@ -203,6 +208,9 @@
     "form": {
       "createTitle": "Add item",
       "editTitle": "Edit item",
+      "sectionBasics": "Basic information",
+      "sectionStock": "Stock & pricing",
+      "sectionAdditional": "Additional details",
       "name": "Name",
       "namePlaceholder": "e.g. Basmati Rice",
       "category": "Category",
@@ -218,15 +226,22 @@
       "shelfLifeDays": "Shelf life (days)",
       "storageLocation": "Storage location",
       "storageLocationPlaceholder": "Optional",
+      "defaultSupplierId": "Default supplier",
+      "defaultSupplierIdPlaceholder": "Optional",
+      "purchaseGLAccount": "Purchase GL account",
+      "purchaseGLAccountPlaceholder": "Optional — for accounting export only",
+      "defaultTaxRateId": "Default tax rate",
+      "defaultTaxRateIdPlaceholder": "Optional",
+      "defaultTaxRateIdInactiveOption": "{{name}} (Inactive)",
+      "openingStockTitle": "Opening stock",
+      "openingStockHint": "Captured once at creation — not editable afterward here.",
+      "openingQuantity": "Quantity",
+      "openingRatePerUnit": "Rate per unit",
       "cancel": "Cancel",
       "save": "Save item",
       "saving": "Saving…",
       "errorMinMax": "Min stock must be less than max stock",
-      "saveError": "Couldn't save. Please try again.",
-      "deactivate": "Deactivate",
-      "deactivating": "Deactivating…",
-      "confirmDeactivate": "Deactivate this item?",
-      "confirmYes": "Yes, deactivate"
+      "saveError": "Couldn't save. Please try again."
     },
     "categoryManager": {
       "title": "Manage categories",
@@ -242,6 +257,249 @@
       "BOX": "Box",
       "GRAM": "Gram (g)",
       "ML": "Millilitre (ml)"
+    },
+    "detail": {
+      "back": "Back to items",
+      "loadError": "Couldn't load this item",
+      "notFound": "Item not found",
+      "edit": "Edit",
+      "adjustStock": "Adjust stock",
+      "more": "More",
+      "clone": "Clone item",
+      "markInactive": "Mark as inactive",
+      "reactivate": "Reactivate",
+      "manageCategories": "Manage categories",
+      "confirmDeactivate": "Deactivate this item?",
+      "confirmReactivate": "Reactivate this item?",
+      "confirmYes": "Yes",
+      "cancel": "Cancel",
+      "deactivating": "Deactivating…",
+      "reactivating": "Reactivating…",
+      "currentStock": "Current stock",
+      "stockValue": "Stock value",
+      "openingStock": "Opening stock",
+      "tabs": {
+        "overview": "Overview",
+        "transactions": "Transactions",
+        "history": "History"
+      },
+      "overview": {
+        "category": "Category",
+        "unit": "Unit",
+        "reorderPoint": "Reorder point (min / max)",
+        "shelfLifeDays": "Shelf life",
+        "shelfLifeDaysValue_one": "{{count}} day",
+        "shelfLifeDaysValue_other": "{{count}} days",
+        "storageLocation": "Storage location",
+        "costPrice": "Cost price",
+        "defaultSupplier": "Default supplier",
+        "defaultTaxRate": "Default tax rate",
+        "purchaseGLAccount": "Purchase GL account",
+        "images": "Images",
+        "uploadImage": "Upload image",
+        "uploading": "Uploading…",
+        "uploadError": "Couldn't upload this image",
+        "noImages": "No images yet",
+        "primaryBadge": "Primary",
+        "setPrimary": "Set as primary",
+        "deleteImage": "Delete"
+      },
+      "history": {
+        "empty": "No history yet",
+        "loadError": "Couldn't load history",
+        "restricted": "You don't have permission to view this item's history"
+      },
+      "cloneDialog": {
+        "title": "Clone item",
+        "description": "Creates a new item pre-filled from this one. Stock and opening balance are never copied.",
+        "newSku": "New SKU",
+        "newSkuPlaceholder": "e.g. RICE-BAS-002",
+        "cancel": "Cancel",
+        "clone": "Clone",
+        "cloning": "Cloning…",
+        "error": "Couldn't clone this item"
+      }
+    }
+  },
+  "stock": {
+    "title": "Stock Transactions",
+    "subtitle": "Record stock movements and review transaction history",
+    "recordTransaction": "Record transaction",
+    "loadError": "Couldn't load stock transactions",
+    "filters": {
+      "allItems": "All items",
+      "allTypes": "All types",
+      "dateFrom": "From",
+      "dateTo": "To"
+    },
+    "table": {
+      "date": "Date",
+      "item": "Item",
+      "type": "Type",
+      "quantity": "Quantity",
+      "balanceAfter": "Balance after",
+      "reasonCode": "Reason"
+    },
+    "types": {
+      "PURCHASE_IN": "Purchase in",
+      "OPENING_BALANCE": "Opening balance",
+      "TRANSFER_IN": "Transfer in",
+      "ADJUSTMENT_IN": "Adjustment in",
+      "USAGE_OUT": "Usage",
+      "WASTAGE_OUT": "Wastage",
+      "TRANSFER_OUT": "Transfer out",
+      "ADJUSTMENT_OUT": "Adjustment out"
+    },
+    "reasonCodes": {
+      "EXPIRED": "Expired",
+      "DAMAGED": "Damaged",
+      "SPILLED": "Spilled",
+      "OVER_PREPARED": "Over-prepared"
+    },
+    "empty": {
+      "title": "No transactions match your filters",
+      "description": "Try adjusting your search or filters.",
+      "action": "Record transaction"
+    },
+    "form": {
+      "title": "Record stock transaction",
+      "item": "Item",
+      "itemPlaceholder": "Select an item",
+      "type": "Transaction type",
+      "quantity": "Quantity",
+      "reasonCode": "Reason",
+      "reasonCodePlaceholder": "Select a reason",
+      "forceOverride": "Allow even if it takes stock negative",
+      "forceOverrideHint": "Managers only — has no effect for other roles.",
+      "cancel": "Cancel",
+      "save": "Record transaction",
+      "saving": "Recording…",
+      "errorReasonRequired": "A reason is required for wastage",
+      "saveError": "Couldn't record this transaction. Please try again."
+    }
+  },
+  "taxRates": {
+    "back": "Back to items",
+    "title": "Tax Configuration",
+    "subtitle": "Manage the tax rates shared across items, purchase orders, and GRNs",
+    "addTaxRate": "Add tax rate",
+    "loadError": "Couldn't load tax rates",
+    "table": {
+      "name": "Name",
+      "rate": "Rate",
+      "type": "Type",
+      "status": "Status"
+    },
+    "type": {
+      "simple": "Simple",
+      "split": "Split"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "countries": {
+      "saudiArabia": "Saudi Arabia",
+      "uae": "United Arab Emirates",
+      "india": "India"
+    },
+    "edit": "Edit",
+    "deactivate": "Deactivate",
+    "deactivating": "Deactivating…",
+    "confirmDeactivate": "Deactivate \"{{name}}\"? It will no longer appear as an option for new selections.",
+    "confirmLastActive": "\"{{name}}\" is the last active tax rate — deactivating it leaves the outlet with no active tax rates. Continue?",
+    "confirmYes": "Yes, deactivate",
+    "cancel": "Cancel",
+    "empty": {
+      "title": "No tax rates yet",
+      "description": "Add your outlet's tax rates to make them selectable on items, purchase orders, and GRNs."
+    },
+    "form": {
+      "createTitle": "Add tax rate",
+      "editTitle": "Edit tax rate",
+      "name": "Name",
+      "namePlaceholder": "e.g. VAT 15%",
+      "country": "Country",
+      "countryPlaceholder": "None",
+      "compoundToggle": "Compound tax?",
+      "compoundToggleHint": "Turn on for taxes split into multiple components, like India's CGST + SGST or IGST.",
+      "componentsTitle": "Components",
+      "componentName": "Component name",
+      "componentNamePlaceholder": "e.g. CGST",
+      "componentRate": "Rate (%)",
+      "addComponent": "Add component",
+      "removeComponent": "Remove component",
+      "autoSumHint": "The overall rate is calculated automatically as the sum of the components.",
+      "ratePercent": "Rate (%)",
+      "activeToggle": "Active",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveError": "Couldn't save. Please try again.",
+      "permissionError": "You don't have permission to make this change."
+    },
+    "breakdown": {
+      "tax": "{{amount}}"
+    },
+    "preview": {
+      "action": "Preview",
+      "title": "Preview: {{name}}",
+      "description": "Calculate how this tax rate applies to a sample amount — not a real transaction.",
+      "subtotal": "Subtotal",
+      "calculate": "Calculate",
+      "calculating": "Calculating…",
+      "net": "Net",
+      "taxLabel": "Tax",
+      "gross": "Gross",
+      "error": "Couldn't calculate. Please try again."
+    }
+  },
+  "currency": {
+    "title": "Currency & Exchange Rates",
+    "subtitle": "This outlet's base currency and the exchange rates used to convert foreign-currency purchases",
+    "loadError": "Couldn't load currency settings",
+    "baseCurrencySection": {
+      "title": "This Outlet's Base Currency",
+      "change": "Change base currency"
+    },
+    "ratesSection": {
+      "title": "Exchange Rates",
+      "subtitle": "Rates are historical — saving a new rate never edits an old one; the latest one is always used",
+      "addRate": "Add rate",
+      "empty": {
+        "title": "No exchange rates yet",
+        "description": "Add a rate to convert foreign-currency purchases into this outlet's base currency."
+      }
+    },
+    "table": {
+      "baseCurrency": "Base Currency",
+      "targetCurrency": "Target Currency",
+      "rate": "Rate",
+      "effectiveDate": "Effective Date",
+      "source": "Source"
+    },
+    "source": {
+      "manual": "Manual",
+      "api": "API"
+    },
+    "changeBaseCurrency": {
+      "title": "Change base currency",
+      "description": "This is heavily restricted — it will be rejected once this outlet has any transaction history, since changing it afterward would invalidate historical valuation reporting."
+    },
+    "rateForm": {
+      "title": "Add exchange rate"
+    },
+    "form": {
+      "baseCurrency": "Base Currency",
+      "targetCurrency": "Target Currency",
+      "targetCurrencyPlaceholder": "Select a currency",
+      "rate": "Rate",
+      "ratePlaceholder": "e.g. 0.266667",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveError": "Couldn't save. Please try again.",
+      "permissionError": "You don't have permission to make this change."
     }
   }
 }

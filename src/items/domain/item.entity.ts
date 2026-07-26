@@ -12,6 +12,8 @@ export interface Item {
   shelfLifeDays: number | null;
   costPrice: string;
   defaultSupplierId: string | null;
+  purchaseGLAccount: string | null;
+  defaultTaxRateId: string | null;
   storageLocation: string | null;
   isActive: boolean;
   createdAt: Date;

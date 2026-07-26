@@ -12,7 +12,9 @@
     "close": "بند کریں",
     "moreActions": "مزید اقدامات",
     "switchToLightMode": "لائٹ موڈ میں تبدیل کریں",
-    "switchToDarkMode": "ڈارک موڈ میں تبدیل کریں"
+    "switchToDarkMode": "ڈارک موڈ میں تبدیل کریں",
+    "logout": "لاگ آؤٹ کریں",
+    "unknownUser": "سائن ان ہے"
   },
   "export": {
     "menuItemSuffix": "(یہاں ایکسپورٹ کرنے کے لیے کچھ نہیں)",
@@ -22,6 +24,8 @@
     "dashboard": "ڈیش بورڈ",
     "items": "اشیاء",
     "stock": "اسٹاک",
+    "taxes": "ٹیکسز",
+    "currency": "کرنسی",
     "suppliers": "سپلائرز",
     "reports": "رپورٹس",
     "users": "صارفین",
@@ -170,6 +174,7 @@
     "subtitle": "اپنے آؤٹ لیٹ کی اشیاء کی فہرست اور زمرہ جات کا نظم کریں",
     "addItem": "شے شامل کریں",
     "manageCategories": "زمرہ جات کا نظم کریں",
+    "manageTaxRates": "ٹیکس کی شرحیں",
     "searchPlaceholder": "نام یا SKU سے تلاش کریں…",
     "loadError": "آئٹمز لوڈ نہیں ہو سکے",
     "filters": {
@@ -203,6 +208,9 @@
     "form": {
       "createTitle": "شے شامل کریں",
       "editTitle": "شے میں ترمیم کریں",
+      "sectionBasics": "بنیادی معلومات",
+      "sectionStock": "اسٹاک اور قیمت",
+      "sectionAdditional": "اضافی تفصیلات",
       "name": "نام",
       "namePlaceholder": "مثلاً باسمتی چاول",
       "category": "زمرہ",
@@ -218,15 +226,22 @@
       "shelfLifeDays": "شیلف لائف (دن)",
       "storageLocation": "اسٹوریج مقام",
       "storageLocationPlaceholder": "اختیاری",
+      "defaultSupplierId": "ڈیفالٹ سپلائر",
+      "defaultSupplierIdPlaceholder": "اختیاری",
+      "purchaseGLAccount": "خریداری جی ایل اکاؤنٹ",
+      "purchaseGLAccountPlaceholder": "اختیاری — صرف اکاؤنٹنگ ایکسپورٹ کے لیے",
+      "defaultTaxRateId": "ڈیفالٹ ٹیکس ریٹ",
+      "defaultTaxRateIdPlaceholder": "اختیاری",
+      "defaultTaxRateIdInactiveOption": "{{name}} (غیر فعال)",
+      "openingStockTitle": "ابتدائی اسٹاک",
+      "openingStockHint": "صرف تخلیق کے وقت ایک بار درج کیا جاتا ہے — بعد میں یہاں ترمیم نہیں کی جا سکتی۔",
+      "openingQuantity": "مقدار",
+      "openingRatePerUnit": "فی یونٹ نرخ",
       "cancel": "منسوخ کریں",
       "save": "شے محفوظ کریں",
       "saving": "محفوظ ہو رہا ہے…",
       "errorMinMax": "کم از کم اسٹاک زیادہ سے زیادہ اسٹاک سے کم ہونا چاہیے",
-      "saveError": "محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
-      "deactivate": "غیر فعال کریں",
-      "deactivating": "غیر فعال ہو رہا ہے…",
-      "confirmDeactivate": "کیا اس آئٹم کو غیر فعال کرنا ہے؟",
-      "confirmYes": "ہاں، غیر فعال کریں"
+      "saveError": "محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔"
     },
     "categoryManager": {
       "title": "زمرہ جات کا نظم کریں",
@@ -242,6 +257,249 @@
       "BOX": "بکس",
       "GRAM": "گرام (g)",
       "ML": "ملی لیٹر (ml)"
+    },
+    "detail": {
+      "back": "اشیاء پر واپس جائیں",
+      "loadError": "یہ شے لوڈ نہیں ہو سکی",
+      "notFound": "شے نہیں ملی",
+      "edit": "ترمیم کریں",
+      "adjustStock": "اسٹاک ایڈجسٹ کریں",
+      "more": "مزید",
+      "clone": "شے کلون کریں",
+      "markInactive": "غیر فعال نشان زد کریں",
+      "reactivate": "دوبارہ فعال کریں",
+      "manageCategories": "زمرہ جات کا نظم کریں",
+      "confirmDeactivate": "کیا اس شے کو غیر فعال کرنا ہے؟",
+      "confirmReactivate": "کیا اس شے کو دوبارہ فعال کرنا ہے؟",
+      "confirmYes": "ہاں",
+      "cancel": "منسوخ کریں",
+      "deactivating": "غیر فعال ہو رہا ہے…",
+      "reactivating": "دوبارہ فعال ہو رہا ہے…",
+      "currentStock": "موجودہ اسٹاک",
+      "stockValue": "اسٹاک کی مالیت",
+      "openingStock": "ابتدائی اسٹاک",
+      "tabs": {
+        "overview": "جائزہ",
+        "transactions": "لین دین",
+        "history": "تاریخ"
+      },
+      "overview": {
+        "category": "زمرہ",
+        "unit": "اکائی",
+        "reorderPoint": "دوبارہ آرڈر پوائنٹ (کم از کم / زیادہ سے زیادہ)",
+        "shelfLifeDays": "شیلف لائف",
+        "shelfLifeDaysValue_one": "{{count}} دن",
+        "shelfLifeDaysValue_other": "{{count}} دن",
+        "storageLocation": "اسٹوریج مقام",
+        "costPrice": "لاگت قیمت",
+        "defaultSupplier": "ڈیفالٹ سپلائر",
+        "defaultTaxRate": "ڈیفالٹ ٹیکس ریٹ",
+        "purchaseGLAccount": "خریداری جی ایل اکاؤنٹ",
+        "images": "تصاویر",
+        "uploadImage": "تصویر اپ لوڈ کریں",
+        "uploading": "اپ لوڈ ہو رہا ہے…",
+        "uploadError": "یہ تصویر اپ لوڈ نہیں ہو سکی",
+        "noImages": "ابھی تک کوئی تصویر نہیں",
+        "primaryBadge": "بنیادی",
+        "setPrimary": "بنیادی کے طور پر مقرر کریں",
+        "deleteImage": "حذف کریں"
+      },
+      "history": {
+        "empty": "ابھی تک کوئی تاریخ نہیں",
+        "loadError": "تاریخ لوڈ نہیں ہو سکی",
+        "restricted": "آپ کو اس شے کی تاریخ دیکھنے کی اجازت نہیں ہے"
+      },
+      "cloneDialog": {
+        "title": "شے کلون کریں",
+        "description": "اس شے سے پہلے سے بھری ہوئی ایک نئی شے بناتا ہے۔ اسٹاک اور ابتدائی بیلنس کبھی کاپی نہیں ہوتے۔",
+        "newSku": "نیا SKU",
+        "newSkuPlaceholder": "مثلاً RICE-BAS-002",
+        "cancel": "منسوخ کریں",
+        "clone": "کلون کریں",
+        "cloning": "کلون ہو رہا ہے…",
+        "error": "یہ شے کلون نہیں ہو سکی"
+      }
+    }
+  },
+  "stock": {
+    "title": "اسٹاک لین دین",
+    "subtitle": "اسٹاک کی نقل و حرکت درج کریں اور لین دین کی تاریخ دیکھیں",
+    "recordTransaction": "لین دین درج کریں",
+    "loadError": "اسٹاک لین دین لوڈ نہیں ہو سکے",
+    "filters": {
+      "allItems": "تمام آئٹمز",
+      "allTypes": "تمام اقسام",
+      "dateFrom": "سے",
+      "dateTo": "تک"
+    },
+    "table": {
+      "date": "تاریخ",
+      "item": "آئٹم",
+      "type": "قسم",
+      "quantity": "مقدار",
+      "balanceAfter": "بقیہ اسٹاک",
+      "reasonCode": "وجہ"
+    },
+    "types": {
+      "PURCHASE_IN": "خریداری موصول",
+      "OPENING_BALANCE": "ابتدائی بیلنس",
+      "TRANSFER_IN": "منتقلی موصول",
+      "ADJUSTMENT_IN": "ایڈجسٹمنٹ (اضافہ)",
+      "USAGE_OUT": "استعمال",
+      "WASTAGE_OUT": "ضیاع",
+      "TRANSFER_OUT": "منتقلی بھیجی گئی",
+      "ADJUSTMENT_OUT": "ایڈجسٹمنٹ (کمی)"
+    },
+    "reasonCodes": {
+      "EXPIRED": "میعاد ختم",
+      "DAMAGED": "خراب",
+      "SPILLED": "گر گیا",
+      "OVER_PREPARED": "زیادہ تیار ہوا"
+    },
+    "empty": {
+      "title": "آپ کے فلٹرز سے مطابقت رکھنے والا کوئی لین دین نہیں",
+      "description": "اپنی تلاش یا فلٹرز تبدیل کر کے دیکھیں۔",
+      "action": "لین دین درج کریں"
+    },
+    "form": {
+      "title": "اسٹاک لین دین درج کریں",
+      "item": "آئٹم",
+      "itemPlaceholder": "ایک آئٹم منتخب کریں",
+      "type": "لین دین کی قسم",
+      "quantity": "مقدار",
+      "reasonCode": "وجہ",
+      "reasonCodePlaceholder": "ایک وجہ منتخب کریں",
+      "forceOverride": "اسٹاک منفی ہونے پر بھی اجازت دیں",
+      "forceOverrideHint": "صرف مینیجرز کے لیے — دیگر کرداروں پر کوئی اثر نہیں۔",
+      "cancel": "منسوخ کریں",
+      "save": "لین دین درج کریں",
+      "saving": "درج ہو رہا ہے…",
+      "errorReasonRequired": "ضیاع کے لیے وجہ درکار ہے",
+      "saveError": "یہ لین دین درج نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔"
+    }
+  },
+  "taxRates": {
+    "back": "اشیاء پر واپس جائیں",
+    "title": "ٹیکس کنفیگریشن",
+    "subtitle": "اشیاء، خریداری آرڈرز اور GRN میں مشترکہ ٹیکس کی شرحوں کا نظم کریں",
+    "addTaxRate": "ٹیکس ریٹ شامل کریں",
+    "loadError": "ٹیکس کی شرحیں لوڈ نہیں ہو سکیں",
+    "table": {
+      "name": "نام",
+      "rate": "شرح",
+      "type": "قسم",
+      "status": "حیثیت"
+    },
+    "type": {
+      "simple": "سادہ",
+      "split": "منقسم"
+    },
+    "status": {
+      "active": "فعال",
+      "inactive": "غیر فعال"
+    },
+    "countries": {
+      "saudiArabia": "سعودی عرب",
+      "uae": "متحدہ عرب امارات",
+      "india": "بھارت"
+    },
+    "edit": "ترمیم کریں",
+    "deactivate": "غیر فعال کریں",
+    "deactivating": "غیر فعال ہو رہا ہے…",
+    "confirmDeactivate": "کیا \"{{name}}\" کو غیر فعال کرنا ہے؟ یہ نئے انتخاب کے لیے اب دستیاب نہیں ہوگی۔",
+    "confirmLastActive": "\"{{name}}\" آخری فعال ٹیکس ریٹ ہے — اسے غیر فعال کرنے سے آؤٹ لیٹ کے پاس کوئی فعال ٹیکس ریٹ نہیں رہے گی۔ جاری رکھیں؟",
+    "confirmYes": "ہاں، غیر فعال کریں",
+    "cancel": "منسوخ کریں",
+    "empty": {
+      "title": "ابھی تک کوئی ٹیکس ریٹ نہیں",
+      "description": "اشیاء، خریداری آرڈرز اور GRN میں منتخب کرنے کے قابل بنانے کے لیے اپنے آؤٹ لیٹ کی ٹیکس شرحیں شامل کریں۔"
+    },
+    "form": {
+      "createTitle": "ٹیکس ریٹ شامل کریں",
+      "editTitle": "ٹیکس ریٹ میں ترمیم کریں",
+      "name": "نام",
+      "namePlaceholder": "مثلاً VAT 15%",
+      "country": "ملک",
+      "countryPlaceholder": "کوئی نہیں",
+      "compoundToggle": "مرکب ٹیکس؟",
+      "compoundToggleHint": "بھارت کے CGST + SGST یا IGST جیسے متعدد اجزاء میں تقسیم ٹیکسوں کے لیے اسے آن کریں۔",
+      "componentsTitle": "اجزاء",
+      "componentName": "جزو کا نام",
+      "componentNamePlaceholder": "مثلاً CGST",
+      "componentRate": "شرح (%)",
+      "addComponent": "جزو شامل کریں",
+      "removeComponent": "جزو ہٹائیں",
+      "autoSumHint": "مجموعی شرح خودکار طور پر اجزاء کے مجموعے کے طور پر شمار کی جاتی ہے۔",
+      "ratePercent": "شرح (%)",
+      "activeToggle": "فعال",
+      "cancel": "منسوخ کریں",
+      "save": "محفوظ کریں",
+      "saving": "محفوظ ہو رہا ہے…",
+      "saveError": "محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+      "permissionError": "آپ کو یہ تبدیلی کرنے کی اجازت نہیں ہے۔"
+    },
+    "breakdown": {
+      "tax": "{{amount}}"
+    },
+    "preview": {
+      "action": "پیش منظر",
+      "title": "پیش منظر: {{name}}",
+      "description": "دیکھیں کہ یہ ٹیکس ریٹ ایک نمونہ رقم پر کیسے لاگو ہوتی ہے — یہ اصل لین دین نہیں ہے۔",
+      "subtotal": "ذیلی مجموعہ",
+      "calculate": "حساب کریں",
+      "calculating": "حساب ہو رہا ہے…",
+      "net": "خالص",
+      "taxLabel": "ٹیکس",
+      "gross": "کل",
+      "error": "حساب نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔"
+    }
+  },
+  "currency": {
+    "title": "کرنسی اور شرح مبادلہ",
+    "subtitle": "اس آؤٹ لیٹ کی بنیادی کرنسی اور غیر ملکی کرنسی کی خریداریوں کو تبدیل کرنے کے لیے استعمال ہونے والی شرحیں",
+    "loadError": "کرنسی کی ترتیبات لوڈ نہیں ہو سکیں",
+    "baseCurrencySection": {
+      "title": "اس آؤٹ لیٹ کی بنیادی کرنسی",
+      "change": "بنیادی کرنسی تبدیل کریں"
+    },
+    "ratesSection": {
+      "title": "شرح مبادلہ",
+      "subtitle": "شرحیں تاریخی ہیں — نئی شرح محفوظ کرنے سے پرانی شرح کبھی تبدیل نہیں ہوتی؛ ہمیشہ تازہ ترین شرح استعمال ہوتی ہے",
+      "addRate": "شرح شامل کریں",
+      "empty": {
+        "title": "ابھی تک کوئی شرح مبادلہ نہیں",
+        "description": "غیر ملکی کرنسی کی خریداریوں کو اس آؤٹ لیٹ کی بنیادی کرنسی میں تبدیل کرنے کے لیے ایک شرح شامل کریں۔"
+      }
+    },
+    "table": {
+      "baseCurrency": "بنیادی کرنسی",
+      "targetCurrency": "ہدف کرنسی",
+      "rate": "شرح",
+      "effectiveDate": "تاریخ نفاذ",
+      "source": "ماخذ"
+    },
+    "source": {
+      "manual": "دستی",
+      "api": "API"
+    },
+    "changeBaseCurrency": {
+      "title": "بنیادی کرنسی تبدیل کریں",
+      "description": "یہ سختی سے محدود ہے — جیسے ہی اس آؤٹ لیٹ کی کوئی لین دین کی تاریخ ہوگی، اسے مسترد کر دیا جائے گا، کیونکہ بعد میں اسے تبدیل کرنے سے تاریخی تشخیصی رپورٹنگ غلط ہو جائے گی۔"
+    },
+    "rateForm": {
+      "title": "شرح مبادلہ شامل کریں"
+    },
+    "form": {
+      "baseCurrency": "بنیادی کرنسی",
+      "targetCurrency": "ہدف کرنسی",
+      "targetCurrencyPlaceholder": "ایک کرنسی منتخب کریں",
+      "rate": "شرح",
+      "ratePlaceholder": "مثلاً 0.266667",
+      "cancel": "منسوخ کریں",
+      "save": "محفوظ کریں",
+      "saving": "محفوظ ہو رہا ہے…",
+      "saveError": "محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+      "permissionError": "آپ کو یہ تبدیلی کرنے کی اجازت نہیں ہے۔"
     }
   }
 }

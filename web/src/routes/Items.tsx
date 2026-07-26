@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Package, Plus, Search, Settings2 } from 'lucide-react';
+import { Package, Percent, Plus, Search, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -11,6 +12,7 @@ import { ResponsiveTable, type ResponsiveTableColumn } from '@/components/ui/Res
 import { ItemFormModal } from '@/components/items/ItemFormModal';
 import { CategoryManagerModal } from '@/components/items/CategoryManagerModal';
 import { categoriesApi, itemsApi, type ApiCategory, type ApiItem } from '@/lib/items-api';
+import { taxRatesApi, type ApiTaxRate } from '@/lib/tax-rates-api';
 import { getSession } from '@/lib/auth-store';
 import { ApiError } from '@/lib/api-client';
 
@@ -24,12 +26,14 @@ type StatusFilter = 'active' | 'inactive' | 'all';
  */
 export function Items() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const outletId = getSession()?.user.effectiveOutletIds[0];
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ApiItem[]>([]);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [taxRates, setTaxRates] = useState<ApiTaxRate[]>([]);
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -37,7 +41,6 @@ export function Items() {
   const [belowMinOnly, setBelowMinOnly] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<ApiItem | null>(null);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
 
   const loadItems = useCallback(async () => {
@@ -66,17 +69,12 @@ export function Items() {
 
   useEffect(() => {
     categoriesApi.list().then(setCategories).catch(() => setCategories([]));
+    taxRatesApi.list().then(setTaxRates).catch(() => setTaxRates([]));
   }, []);
 
   const categoryName = (categoryId: string) => categories.find((c) => c.id === categoryId)?.name ?? '—';
 
   function openCreate() {
-    setEditingItem(null);
-    setFormOpen(true);
-  }
-
-  function openEdit(item: ApiItem) {
-    setEditingItem(item);
     setFormOpen(true);
   }
 
@@ -95,7 +93,7 @@ export function Items() {
       header: t('items.table.name'),
       render: (item) => (
         <button
-          onClick={() => openEdit(item)}
+          onClick={() => navigate(`/items/${item.id}`)}
           className="text-left font-medium text-foreground hover:text-primary hover:underline"
         >
           {item.name}
@@ -153,6 +151,10 @@ export function Items() {
           <Button variant="outline" onClick={() => setCategoryManagerOpen(true)}>
             <Settings2 className="h-4 w-4" />
             {t('items.manageCategories')}
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/tax-rates')}>
+            <Percent className="h-4 w-4" />
+            {t('items.manageTaxRates')}
           </Button>
           <Button onClick={openCreate} disabled={!outletId}>
             <Plus className="h-4 w-4" />
@@ -231,8 +233,9 @@ export function Items() {
       <ItemFormModal
         open={formOpen}
         onOpenChange={setFormOpen}
-        item={editingItem}
+        item={null}
         categories={categories}
+        taxRates={taxRates}
         outletId={outletId}
         onSaved={handleSaved}
       />

@@ -6,8 +6,21 @@ import {
   Matches,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { UNITS, Unit } from '../constants/enums';
+
+export class OpeningStockDto {
+  @Matches(/^\d+(\.\d{1,3})?$/, { message: 'quantity must be a decimal with up to 3 places' })
+  quantity!: string;
+
+  // See ItemRepository's OpeningStockInput doc comment — validated for
+  // API-contract fidelity but not persisted as its own column.
+  @IsOptional()
+  @Matches(/^\d+(\.\d{1,2})?$/, { message: 'ratePerUnit must be a decimal with up to 2 places' })
+  ratePerUnit?: string;
+}
 
 export class CreateItemDto {
   // Not in the spec's illustrative request body, but Item.outletId is a
@@ -56,5 +69,21 @@ export class CreateItemDto {
 
   @IsOptional()
   @IsString()
+  purchaseGLAccount?: string;
+
+  @IsOptional()
+  @IsString()
+  defaultTaxRateId?: string;
+
+  @IsOptional()
+  @IsString()
   storageLocation?: string;
+
+  // Captured at creation time rather than as a separate manual stock-in
+  // step — see FR-01 spec's Business Logic: "the endpoint never writes
+  // currentStock as a raw field itself, even in that case."
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OpeningStockDto)
+  openingStock?: OpeningStockDto;
 }

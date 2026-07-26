@@ -2,11 +2,11 @@ import { Menu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { mockCurrentUser } from '@/lib/fixtures';
 import { ContextSwitcher } from './ContextSwitcher';
 import { Clock } from './Clock';
 import { GlobalSearchTrigger } from './GlobalSearch';
 import { GlobalActionsMenu, GlobalActionsRow, type Language } from './GlobalActions';
+import { UserMenu } from './UserMenu';
 
 export interface GlobalHeaderProps {
   onOpenDrawer: () => void;
@@ -54,16 +54,8 @@ export function GlobalHeader({
 
         <GlobalSearchTrigger onClick={onOpenSearch} />
 
-        <div
-          className="hidden shrink-0 items-center gap-2.5 tablet:flex"
-          title={`${mockCurrentUser.name} — ${mockCurrentUser.effectiveRole}`}
-        >
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-blue/10 text-xs font-semibold text-accent-blue">
-            {mockCurrentUser.initials}
-          </span>
-          <span className="hidden max-w-64 truncate text-sm text-foreground lg:inline">
-            {mockCurrentUser.name} <span className="text-foreground-muted">— {mockCurrentUser.effectiveRole}</span>
-          </span>
+        <div className="hidden shrink-0 tablet:block">
+          <UserMenu className="max-w-64 p-1.5" />
         </div>
 
         <div className="shrink-0 lg:hidden">

@@ -56,6 +56,14 @@ export class UpdateItemDto {
 
   @IsOptional()
   @IsString()
+  purchaseGLAccount?: string;
+
+  @IsOptional()
+  @IsString()
+  defaultTaxRateId?: string;
+
+  @IsOptional()
+  @IsString()
   storageLocation?: string;
 
   @IsOptional()

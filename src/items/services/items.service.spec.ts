@@ -19,6 +19,8 @@ function fixtureItem(overrides: Partial<Item> = {}): Item {
     shelfLifeDays: 365,
     costPrice: '85.50',
     defaultSupplierId: null,
+    purchaseGLAccount: null,
+    defaultTaxRateId: null,
     storageLocation: null,
     isActive: true,
     createdAt: new Date(),
@@ -108,8 +110,9 @@ describe('ItemsService', () => {
 
   it('creates successfully for an authorized role with valid data', async () => {
     const { service, itemRepository } = buildService();
-    await service.create(fixtureRequest('OUTLET_MANAGER'), createDto);
-    expect(itemRepository.create).toHaveBeenCalledWith(createDto);
+    const request = fixtureRequest('OUTLET_MANAGER');
+    await service.create(request, createDto);
+    expect(itemRepository.create).toHaveBeenCalledWith({ ...createDto, performedById: request.user!.id });
   });
 
   it('findById throws NotFoundException for a missing item', async () => {
@@ -155,5 +158,57 @@ describe('ItemsService', () => {
     expect(itemRepository.findScoped).toHaveBeenCalledWith(
       expect.objectContaining({ accessibleOutletIds: ['o1'], belowMinStock: true, isActive: false }),
     );
+  });
+
+  describe('clone', () => {
+    it('AC: copies master data but never copies sku or current stock', async () => {
+      const source = fixtureItem({
+        currentStock: '37.500',
+        defaultSupplierId: 's1',
+        purchaseGLAccount: 'COGS',
+        defaultTaxRateId: 't1',
+      });
+      const { service, itemRepository } = buildService(source);
+      const request = fixtureRequest('OUTLET_MANAGER');
+
+      await service.clone(request, 'i1', 'RICE-BAS-002');
+
+      expect(itemRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outletId: source.outletId,
+          name: 'Basmati Rice (Copy)',
+          categoryId: source.categoryId,
+          sku: 'RICE-BAS-002',
+          unit: source.unit,
+          minStock: source.minStock,
+          maxStock: source.maxStock,
+          costPrice: source.costPrice,
+          defaultSupplierId: source.defaultSupplierId,
+          purchaseGLAccount: source.purchaseGLAccount,
+          defaultTaxRateId: source.defaultTaxRateId,
+          performedById: request.user!.id,
+        }),
+      );
+      // No currentStock/openingStock field is ever passed through — the
+      // clone always starts at 0 via CreateItemInput's own defaulting.
+      const call = (itemRepository.create as jest.Mock).mock.calls[0][0];
+      expect(call.currentStock).toBeUndefined();
+      expect(call.openingStock).toBeUndefined();
+    });
+
+    it('rejects cloning into an already-used sku', async () => {
+      const { service, itemRepository } = buildService();
+      (itemRepository.findBySku as jest.Mock).mockResolvedValue(fixtureItem());
+      await expect(service.clone(fixtureRequest(), 'i1', 'RICE-BAS-001')).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('rejects cloning for a role not permitted to mutate items', async () => {
+      const { service } = buildService();
+      await expect(service.clone(fixtureRequest('STORE_STAFF'), 'i1', 'RICE-BAS-002')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
   });
 });

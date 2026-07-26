@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RbacModule } from '../rbac/rbac.module';
+import { CurrenciesModule } from '../currencies/currencies.module';
+import { StockTransactionsModule } from '../stock-transactions/stock-transactions.module';
 import { ChainsController } from './controllers/chains.controller';
 import { PropertiesController } from './controllers/properties.controller';
 import { OutletsController } from './controllers/outlets.controller';
@@ -20,7 +22,13 @@ import { PrismaOutletRepository } from './repositories/prisma/prisma-outlet.repo
 import { PrismaUserAccessRepository } from './repositories/prisma/prisma-user-access.repository';
 
 @Module({
-  imports: [RbacModule],
+  // FR-16: OutletsService needs CurrenciesModule (validating baseCurrency
+  // against the real registry) and StockTransactionsModule (checking
+  // "does this outlet have any transactional history" before allowing a
+  // base-currency change). Neither imports TenancyModule back — verified
+  // no circular dependency (StockTransactionsModule -> ItemsModule ->
+  // RbacModule/StorageModule only).
+  imports: [RbacModule, CurrenciesModule, StockTransactionsModule],
   controllers: [ChainsController, PropertiesController, OutletsController],
   providers: [
     ChainsService,

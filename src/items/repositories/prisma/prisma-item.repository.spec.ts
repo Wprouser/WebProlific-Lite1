@@ -82,4 +82,80 @@ describe('PrismaItemRepository', () => {
     expect(item!.minStock).toBe('10');
     expect(item!.costPrice).toBe('85.50');
   });
+
+  describe('create', () => {
+    const baseData = {
+      outletId: 'o1',
+      name: 'Basmati Rice',
+      categoryId: 'c1',
+      sku: 'RICE-BAS-001',
+      unit: 'KG',
+      minStock: '10',
+      maxStock: '100',
+      costPrice: '85.50',
+      performedById: 'u1',
+    };
+
+    it('creates directly (no transaction) when no openingStock is given', async () => {
+      const created = fixturePrismaItem();
+      const create = jest.fn().mockResolvedValue(created);
+      const $transaction = jest.fn();
+      const prisma = { item: { create }, $transaction };
+      const repository = new PrismaItemRepository(prisma as any);
+
+      await repository.create(baseData);
+
+      expect($transaction).not.toHaveBeenCalled();
+      const [[callArgs]] = create.mock.calls;
+      expect(callArgs.data.performedById).toBeUndefined();
+      expect(callArgs.data.openingStock).toBeUndefined();
+    });
+
+    it('AC: openingStock produces a real OPENING_BALANCE StockTransaction, not a raw currentStock write', async () => {
+      // Duck-typed Prisma.Decimal — mirrors
+      // prisma-stock-transaction.repository.spec.ts's fixture so
+      // applyStockTransaction's real `new Prisma.Decimal(...).mul()` /
+      // `.plus()` call chain against this mock behaves the same way.
+      const createdItem = fixturePrismaItem({
+        currentStock: {
+          toFixed: () => '0.000',
+          plus: (delta: { toString(): string }) => ({
+            toFixed: (n: number) => Number(delta.toString()).toFixed(n),
+            lessThan: (n: number) => Number(delta.toString()) < n,
+          }),
+        },
+      });
+
+      const itemCreate = jest.fn().mockResolvedValue(createdItem);
+      const itemUpdate = jest.fn();
+      const stockTransactionCreate = jest.fn().mockImplementation(({ data }: any) => ({ ...data }));
+      const tx = {
+        item: { create: itemCreate, update: itemUpdate },
+        stockTransaction: { create: stockTransactionCreate },
+      };
+      const $transaction = jest.fn().mockImplementation((fn: any) => fn(tx));
+      const prisma = { $transaction };
+      const repository = new PrismaItemRepository(prisma as any);
+
+      await repository.create({
+        ...baseData,
+        openingStock: { quantity: '25.000', ratePerUnit: '85.50' },
+      });
+
+      expect($transaction).toHaveBeenCalled();
+      expect(stockTransactionCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: 'OPENING_BALANCE',
+            quantity: '25.000',
+            balanceAfter: '25.000',
+            performedById: 'u1',
+          }),
+        }),
+      );
+      expect(itemUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { currentStock: '25.000' } }),
+      );
+    });
+  });
 });

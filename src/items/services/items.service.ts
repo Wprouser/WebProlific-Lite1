@@ -20,7 +20,37 @@ export class ItemsService {
     await this.assertSkuAvailable(dto.sku);
     if (dto.barcode) await this.assertBarcodeAvailable(dto.barcode);
 
-    return this.itemRepository.create(dto);
+    return this.itemRepository.create({ ...dto, performedById: request.user!.id });
+  }
+
+  /**
+   * Spec: "copies all master-data fields ... except sku (cleared — must be
+   * set by the user, since it must be unique) and currentStock/opening
+   * stock (the clone always starts at 0 — cloning an item definition is not
+   * the same as duplicating its stock)." Goes through the same validated
+   * create path (SKU-uniqueness etc.) rather than a raw repository insert.
+   */
+  async clone(request: RequestWithAccess, id: string, sku: string): Promise<Item> {
+    const source = await this.getOrThrow(id);
+    assertOutletAccess(request, source.outletId, [...MUTATE_ROLES]);
+    await this.assertSkuAvailable(sku);
+
+    return this.itemRepository.create({
+      outletId: source.outletId,
+      name: `${source.name} (Copy)`,
+      categoryId: source.categoryId,
+      sku,
+      unit: source.unit,
+      minStock: source.minStock,
+      maxStock: source.maxStock,
+      shelfLifeDays: source.shelfLifeDays ?? undefined,
+      costPrice: source.costPrice,
+      defaultSupplierId: source.defaultSupplierId ?? undefined,
+      purchaseGLAccount: source.purchaseGLAccount ?? undefined,
+      defaultTaxRateId: source.defaultTaxRateId ?? undefined,
+      storageLocation: source.storageLocation ?? undefined,
+      performedById: request.user!.id,
+    });
   }
 
   async findById(request: RequestWithAccess, id: string): Promise<Item> {

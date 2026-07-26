@@ -1,0 +1,1 @@
+export const TAX_RATE_REPOSITORY = Symbol('TAX_RATE_REPOSITORY');

@@ -7,6 +7,10 @@ import { Styleguide } from '@/routes/Styleguide';
 import { AlertList } from '@/routes/AlertList';
 import { Login } from '@/routes/Login';
 import { Items } from '@/routes/Items';
+import { ItemDetail } from '@/routes/ItemDetail';
+import { StockTransactions } from '@/routes/StockTransactions';
+import { TaxRates } from '@/routes/TaxRates';
+import { CurrencySettings } from '@/routes/CurrencySettings';
 import { getSession } from '@/lib/auth-store';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -41,6 +45,10 @@ export function App() {
           >
             <Route path="/" element={<Dashboard />} />
             <Route path="/items" element={<Items />} />
+            <Route path="/items/:id" element={<ItemDetail />} />
+            <Route path="/stock" element={<StockTransactions />} />
+            <Route path="/tax-rates" element={<TaxRates />} />
+            <Route path="/currency" element={<CurrencySettings />} />
             <Route path="/styleguide" element={<Styleguide />} />
             <Route path="/alerts/:type" element={<AlertList />} />
           </Route>

@@ -8,6 +8,7 @@ import { LanguageSwitcher } from '@/components/layout/GlobalActions';
 import { useAppLanguage } from '@/i18n/useAppLanguage';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { setSession } from '@/lib/auth-store';
+import { authApi } from '@/lib/auth-api';
 
 interface LoginSuccessResponse {
   accessToken: string;
@@ -52,8 +53,25 @@ export function Login() {
   const [maskedDestination, setMaskedDestination] = useState<string | null>(null);
   const [code, setCode] = useState('');
 
-  function applySuccess(result: LoginSuccessResponse) {
-    setSession({ accessToken: result.accessToken, user: result.user });
+  async function applySuccess(result: LoginSuccessResponse) {
+    setSession({
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: { ...result.user, email: '' },
+    });
+    try {
+      // The login response itself carries no email (see auth-store.ts) —
+      // fetch it once so the header/sidebar user menu can show who's
+      // actually signed in instead of a placeholder.
+      const profile = await authApi.me();
+      setSession({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: { ...result.user, email: profile.email },
+      });
+    } catch {
+      // Non-fatal — the user menu just shows a blank email if this fails.
+    }
     navigate('/', { replace: true });
   }
 
@@ -69,7 +87,7 @@ export function Login() {
         setPendingTwoFactorToken(result.pendingTwoFactorToken);
         setMaskedDestination(result.maskedDestination);
       } else {
-        applySuccess(result);
+        await applySuccess(result);
       }
     } catch (err) {
       setError(err instanceof ApiError && err.status === 401 ? t('login.invalidCredentials') : t('login.genericError'));
@@ -88,7 +106,7 @@ export function Login() {
         pendingTwoFactorToken,
         code,
       });
-      applySuccess(result);
+      await applySuccess(result);
     } catch (err) {
       setError(err instanceof ApiError && err.status === 401 ? t('login.twoFactor.invalidCode') : t('login.genericError'));
     } finally {

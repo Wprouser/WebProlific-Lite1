@@ -43,12 +43,6 @@ export const mockChain: ChainFixture = {
   ],
 };
 
-export const mockCurrentUser = {
-  name: 'Ahmed Al-Rashid',
-  effectiveRole: 'Outlet Manager',
-  initials: 'AR',
-};
-
 export type AlertSeverity = 'warning' | 'danger';
 
 export interface AlertBarItem {
