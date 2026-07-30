@@ -21,8 +21,10 @@ import { ScopeResolutionGuard } from './tenancy/guards/scope-resolution.guard';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './rbac/guards/roles.guard';
 import { FieldRestrictionInterceptor } from './rbac/interceptors/field-restriction.interceptor';
+import { AppController } from './app.controller';
 
 @Module({
+  controllers: [AppController],
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     // FR-18's domain-event bus (see ActivityBus) — .forRoot() registers
