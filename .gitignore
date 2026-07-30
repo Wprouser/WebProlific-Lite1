@@ -2,7 +2,13 @@ node_modules/
 dist/
 .env
 .env.test
+.env.production*
+prod-db.secret
 *.log
 coverage/
 /git/
 uploads/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

@@ -11,14 +11,12 @@ import {
   type ApiCategory,
   type ApiItem,
   type ApiItemImage,
-  type Unit,
+  type ApiUnitOfMeasure,
 } from '@/lib/items-api';
 import type { ApiTaxRate } from '@/lib/tax-rates-api';
 import { ApiError } from '@/lib/api-client';
 import { ItemImageGallery } from './ItemImageGallery';
 import { StagedImagePicker } from './StagedImagePicker';
-
-const UNITS: Unit[] = ['KG', 'LITRE', 'PIECE', 'BOX', 'GRAM', 'ML'];
 
 // This form has grown well past the handful of fields Input/Select's
 // shared h-12 touch-target sizing was chosen for (see Button.tsx's own
@@ -41,6 +39,7 @@ export interface ItemFormModalProps {
   /** null = create; an item = edit that item. */
   item: ApiItem | null;
   categories: ApiCategory[];
+  units: ApiUnitOfMeasure[];
   taxRates: ApiTaxRate[];
   /** The outlet new items are created under — undefined if the session has no accessible outlet. */
   outletId: string | undefined;
@@ -52,7 +51,7 @@ interface FormState {
   categoryId: string;
   sku: string;
   barcode: string;
-  unit: Unit;
+  unitId: string;
   minStock: string;
   maxStock: string;
   shelfLifeDays: string;
@@ -65,13 +64,13 @@ interface FormState {
   openingRatePerUnit: string;
 }
 
-function emptyForm(defaultCategoryId: string): FormState {
+function emptyForm(defaultCategoryId: string, defaultUnitId: string): FormState {
   return {
     name: '',
     categoryId: defaultCategoryId,
     sku: '',
     barcode: '',
-    unit: 'KG',
+    unitId: defaultUnitId,
     minStock: '',
     maxStock: '',
     shelfLifeDays: '',
@@ -92,12 +91,13 @@ export function ItemFormModal({
   onOpenChange,
   item,
   categories,
+  units,
   taxRates,
   outletId,
   onSaved,
 }: ItemFormModalProps) {
   const { t } = useTranslation();
-  const [form, setForm] = useState<FormState>(() => emptyForm(categories[0]?.id ?? ''));
+  const [form, setForm] = useState<FormState>(() => emptyForm(categories[0]?.id ?? '', units[0]?.id ?? ''));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -114,6 +114,12 @@ export function ItemFormModal({
   // vanishing or falling back to showing a raw id.
   const availableTaxRates = taxRates.filter((rate) => rate.isActive || rate.id === item?.defaultTaxRateId);
 
+  // Same "hidden once deactivated, unless already selected" rule as
+  // availableTaxRates above — a unit may already be in use on historical
+  // items even after being deactivated (spec: "does not affect any Item
+  // already using it").
+  const availableUnits = units.filter((unit) => unit.isActive || unit.id === item?.unitId);
+
   useEffect(() => {
     if (!open) return;
     setError(null);
@@ -125,7 +131,7 @@ export function ItemFormModal({
             categoryId: item.categoryId,
             sku: item.sku,
             barcode: item.barcode ?? '',
-            unit: item.unit,
+            unitId: item.unitId,
             minStock: item.minStock,
             maxStock: item.maxStock,
             shelfLifeDays: item.shelfLifeDays != null ? String(item.shelfLifeDays) : '',
@@ -137,9 +143,9 @@ export function ItemFormModal({
             openingQuantity: '',
             openingRatePerUnit: '',
           }
-        : emptyForm(categories[0]?.id ?? ''),
+        : emptyForm(categories[0]?.id ?? '', units[0]?.id ?? ''),
     );
-  }, [open, item, categories]);
+  }, [open, item, categories, units]);
 
   useEffect(() => {
     if (!open || !item) {
@@ -171,7 +177,7 @@ export function ItemFormModal({
           categoryId: form.categoryId,
           sku: form.sku,
           barcode: form.barcode.trim() || null,
-          unit: form.unit,
+          unitId: form.unitId,
           minStock: form.minStock,
           maxStock: form.maxStock,
           shelfLifeDays: form.shelfLifeDays.trim() ? Number(form.shelfLifeDays) : null,
@@ -189,7 +195,7 @@ export function ItemFormModal({
           categoryId: form.categoryId,
           sku: form.sku,
           barcode: form.barcode.trim() || null,
-          unit: form.unit,
+          unitId: form.unitId,
           minStock: form.minStock,
           maxStock: form.maxStock,
           shelfLifeDays: form.shelfLifeDays.trim() ? Number(form.shelfLifeDays) : null,
@@ -298,10 +304,10 @@ export function ItemFormModal({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label={t('items.form.unit')}>
-            <CompactSelect value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value as Unit })}>
-              {UNITS.map((u) => (
-                <option key={u} value={u}>
-                  {t(`items.units.${u}`)}
+            <CompactSelect value={form.unitId} onChange={(e) => setForm({ ...form, unitId: e.target.value })}>
+              {availableUnits.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.isActive ? `${u.name} (${u.abbreviation})` : t('items.form.inactiveOption', { name: `${u.name} (${u.abbreviation})` })}
                 </option>
               ))}
             </CompactSelect>

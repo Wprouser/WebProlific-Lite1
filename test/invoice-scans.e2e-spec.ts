@@ -163,13 +163,14 @@ describe('Invoice Scans (FR-04 / AI-04) e2e', () => {
     it('AC: the reviewed/edited data is submitted via the existing POST /grn/direct, which attaches the scan file url', async () => {
       const { outletId, supplierId } = await setupOutlet();
       const category = await prisma.category.create({ data: { name: 'Dry Goods', outletId } });
+      const unit = await prisma.unitOfMeasure.create({ data: { name: 'Kilogram', abbreviation: 'kg', outletId } });
       const item = await prisma.item.create({
         data: {
           outletId,
           categoryId: category.id,
+          unitId: unit.id,
           name: 'Basmati Rice',
           sku: 'RICE-SCAN-001',
-          unit: 'KG',
           minStock: '10',
           maxStock: '1000',
           costPrice: '85.50',

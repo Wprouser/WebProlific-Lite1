@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { DirectGrnForm } from './DirectGrnForm';
 import { grnApi } from '@/lib/grn-api';
 import { suppliersApi } from '@/lib/suppliers-api';
-import { itemsApi } from '@/lib/items-api';
+import { itemsApi, unitsApi } from '@/lib/items-api';
 import { taxRatesApi } from '@/lib/tax-rates-api';
 import { currenciesApi } from '@/lib/currencies-api';
 import { outletsApi } from '@/lib/outlets-api';
@@ -27,7 +27,11 @@ vi.mock('@/lib/suppliers-api', async () => {
 });
 vi.mock('@/lib/items-api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/items-api')>('@/lib/items-api');
-  return { ...actual, itemsApi: { ...actual.itemsApi, list: vi.fn() } };
+  return {
+    ...actual,
+    itemsApi: { ...actual.itemsApi, list: vi.fn() },
+    unitsApi: { ...actual.unitsApi, list: vi.fn() },
+  };
 });
 vi.mock('@/lib/tax-rates-api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/tax-rates-api')>('@/lib/tax-rates-api');
@@ -68,7 +72,8 @@ describe('DirectGrnForm', () => {
       user: { id: 'u1', email: 'test@example.com', preferredLanguage: 'en', effectiveRole: 'OUTLET_MANAGER', effectiveOutletIds: ['o1'] },
     });
     (suppliersApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 's1', name: 'Al-Fahad Trading' }]);
-    (itemsApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 'i1', name: 'Basmati Rice', currentStock: '10.000', unit: 'KG' }]);
+    (itemsApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 'i1', name: 'Basmati Rice', currentStock: '10.000', unitId: 'u1' }]);
+    (unitsApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 'u1', outletId: 'o1', name: 'Kilogram', abbreviation: 'kg', baseUnitId: null, conversionFactor: null, isActive: true }]);
     (taxRatesApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (currenciesApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([{ code: 'SAR', name: 'Saudi Riyal', symbol: 'SAR', decimalPlaces: 2 }]);
     (outletsApi.getCurrencySettings as ReturnType<typeof vi.fn>).mockResolvedValue({ baseCurrency: 'SAR', supportedCurrencies: ['SAR'] });

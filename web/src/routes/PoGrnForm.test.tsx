@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { PoGrnForm } from './PoGrnForm';
 import { purchaseOrdersApi, type ApiPurchaseOrder } from '@/lib/purchase-orders-api';
 import { suppliersApi } from '@/lib/suppliers-api';
-import { itemsApi } from '@/lib/items-api';
+import { itemsApi, unitsApi } from '@/lib/items-api';
 import { taxRatesApi } from '@/lib/tax-rates-api';
 import { setSession } from '@/lib/auth-store';
 
@@ -18,7 +18,11 @@ vi.mock('@/lib/suppliers-api', async () => {
 });
 vi.mock('@/lib/items-api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/items-api')>('@/lib/items-api');
-  return { ...actual, itemsApi: { ...actual.itemsApi, list: vi.fn() } };
+  return {
+    ...actual,
+    itemsApi: { ...actual.itemsApi, list: vi.fn() },
+    unitsApi: { ...actual.unitsApi, list: vi.fn() },
+  };
 });
 vi.mock('@/lib/tax-rates-api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/tax-rates-api')>('@/lib/tax-rates-api');
@@ -85,7 +89,8 @@ describe('PoGrnForm', () => {
       refreshToken: 'refresh-token',
       user: { id: 'u1', email: 'test@example.com', preferredLanguage: 'en', effectiveRole: 'OUTLET_MANAGER', effectiveOutletIds: ['o1'] },
     });
-    (itemsApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 'i1', name: 'Basmati Rice', unit: 'KG', currentStock: '10' }]);
+    (itemsApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 'i1', name: 'Basmati Rice', unitId: 'u1', currentStock: '10' }]);
+    (unitsApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 'u1', outletId: 'o1', name: 'Kilogram', abbreviation: 'kg', baseUnitId: null, conversionFactor: null, isActive: true }]);
     (taxRatesApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
   });
 

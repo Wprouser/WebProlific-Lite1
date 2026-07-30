@@ -176,6 +176,7 @@
     "subtitle": "اپنے آؤٹ لیٹ کی اشیاء کی فہرست اور زمرہ جات کا نظم کریں",
     "addItem": "شے شامل کریں",
     "manageCategories": "زمرہ جات کا نظم کریں",
+    "manageUnits": "اکائیوں کا نظم کریں",
     "manageTaxRates": "ٹیکس کی شرحیں",
     "searchPlaceholder": "نام یا SKU سے تلاش کریں…",
     "loadError": "آئٹمز لوڈ نہیں ہو سکے",
@@ -235,6 +236,7 @@
       "defaultTaxRateId": "ڈیفالٹ ٹیکس ریٹ",
       "defaultTaxRateIdPlaceholder": "اختیاری",
       "defaultTaxRateIdInactiveOption": "{{name}} (غیر فعال)",
+      "inactiveOption": "{{name}} (غیر فعال)",
       "openingStockTitle": "ابتدائی اسٹاک",
       "openingStockHint": "صرف تخلیق کے وقت ایک بار درج کیا جاتا ہے — بعد میں یہاں ترمیم نہیں کی جا سکتی۔",
       "openingQuantity": "مقدار",
@@ -252,13 +254,21 @@
       "add": "شامل کریں",
       "empty": "ابھی تک کوئی زمرہ نہیں"
     },
-    "units": {
-      "KG": "کلوگرام (KG)",
-      "LITRE": "لیٹر (L)",
-      "PIECE": "پیس",
-      "BOX": "بکس",
-      "GRAM": "گرام (g)",
-      "ML": "ملی لیٹر (ml)"
+    "unitManager": {
+      "title": "اکائیوں کا نظم کریں",
+      "description": "آئٹم فارم پر استعمال ہونے والی پیمائش کی اکائیاں — کسی اکائی کو غیر فعال کرنا اسے پہلے سے استعمال کرنے والی اشیاء کو کبھی متاثر نہیں کرتا۔",
+      "namePlaceholder": "نئی اکائی کا نام (مثلاً Bunch)",
+      "abbreviationPlaceholder": "مخفف (مثلاً bunch)",
+      "baseUnitPlaceholder": "بنیادی اکائی (اختیاری)",
+      "conversionFactorPlaceholder": "تبدیلی فیکٹر",
+      "baseUnitLabel": "1 {{thisAbbr}} = {{factor}} {{name}}",
+      "add": "شامل کریں",
+      "save": "محفوظ کریں",
+      "edit": "ترمیم کریں",
+      "deactivate": "غیر فعال کریں",
+      "reactivate": "دوبارہ فعال کریں",
+      "empty": "ابھی تک کوئی اکائی نہیں",
+      "saveError": "محفوظ نہیں ہو سکا۔ دوبارہ کوشش کریں۔"
     },
     "detail": {
       "back": "اشیاء پر واپس جائیں",

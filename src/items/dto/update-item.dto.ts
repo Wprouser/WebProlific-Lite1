@@ -1,6 +1,5 @@
 import {
   IsBoolean,
-  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -8,7 +7,6 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { UNITS, Unit } from '../constants/enums';
 
 export class UpdateItemDto {
   @IsOptional()
@@ -31,8 +29,8 @@ export class UpdateItemDto {
   barcode?: string;
 
   @IsOptional()
-  @IsIn(UNITS)
-  unit?: Unit;
+  @IsString()
+  unitId?: string;
 
   @IsOptional()
   @Matches(/^\d+(\.\d{1,3})?$/, { message: 'minStock must be a decimal with up to 3 places' })

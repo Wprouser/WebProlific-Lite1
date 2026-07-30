@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ItemDetail } from './ItemDetail';
-import { itemsApi, categoriesApi, itemImagesApi, type ApiItem } from '@/lib/items-api';
+import { itemsApi, categoriesApi, itemImagesApi, unitsApi, type ApiItem } from '@/lib/items-api';
 import { stockTransactionsApi } from '@/lib/stock-transactions-api';
 import { transactionLogApi } from '@/lib/transaction-log-api';
 import { setSession } from '@/lib/auth-store';
@@ -15,6 +15,7 @@ vi.mock('@/lib/items-api', async () => {
     itemsApi: { ...actual.itemsApi, get: vi.fn(), deactivate: vi.fn(), reactivate: vi.fn(), clone: vi.fn() },
     categoriesApi: { ...actual.categoriesApi, list: vi.fn() },
     itemImagesApi: { ...actual.itemImagesApi, list: vi.fn() },
+    unitsApi: { ...actual.unitsApi, list: vi.fn() },
   };
 });
 
@@ -36,7 +37,7 @@ const item: ApiItem = {
   categoryId: 'c1',
   sku: 'RICE-BAS-001',
   barcode: null,
-  unit: 'KG',
+  unitId: 'u1',
   minStock: '10',
   maxStock: '100',
   currentStock: '25.000',
@@ -69,6 +70,9 @@ describe('ItemDetail', () => {
     });
     (itemsApi.get as ReturnType<typeof vi.fn>).mockResolvedValue(item);
     (categoriesApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([{ id: 'c1', name: 'Dry Goods', outletId: 'o1' }]);
+    (unitsApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 'u1', outletId: 'o1', name: 'Kilogram', abbreviation: 'kg', baseUnitId: null, conversionFactor: null, isActive: true },
+    ]);
     (itemImagesApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (stockTransactionsApi.list as ReturnType<typeof vi.fn>).mockResolvedValue([
       {
@@ -96,7 +100,7 @@ describe('ItemDetail', () => {
     // Stock value = currentStock (25) * costPrice (85.50) = 2137.50
     expect(screen.getByText('2137.50')).toBeInTheDocument();
     // Opening stock surfaced from the OPENING_BALANCE transaction row.
-    expect(screen.getByText(/25\.000 Kilogram \(KG\) @ 85\.50/)).toBeInTheDocument();
+    expect(screen.getByText(/25\.000 kg @ 85\.50/)).toBeInTheDocument();
   });
 
   it('switches to the Transactions tab and shows the OPENING_BALANCE row', async () => {

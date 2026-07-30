@@ -25,8 +25,9 @@ import { TaxRateRepository } from '../../tax-rates/repositories/tax-rate.reposit
 import { TaxRate } from '../../tax-rates/domain/tax-rate.entity';
 import { INVOICE_SCAN_REPOSITORY } from '../../invoice-scans/repositories/tokens';
 import { InvoiceScanRepository } from '../../invoice-scans/repositories/invoice-scan.repository';
-import { ITEM_REPOSITORY } from '../../items/repositories/tokens';
+import { ITEM_REPOSITORY, UNIT_OF_MEASURE_REPOSITORY } from '../../items/repositories/tokens';
 import { ItemRepository } from '../../items/repositories/item.repository';
+import { UnitOfMeasureRepository } from '../../items/repositories/unit-of-measure.repository';
 import { EMAIL_PROVIDER } from '../../email/providers/tokens';
 import { EmailProvider } from '../../email/providers/email.provider';
 import { generateDocumentPdf } from '../../documents/lib/generate-document-pdf';
@@ -48,6 +49,7 @@ export class GrnService {
     @Inject(TAX_RATE_REPOSITORY) private readonly taxRateRepository: TaxRateRepository,
     @Inject(INVOICE_SCAN_REPOSITORY) private readonly invoiceScanRepository: InvoiceScanRepository,
     @Inject(ITEM_REPOSITORY) private readonly itemRepository: ItemRepository,
+    @Inject(UNIT_OF_MEASURE_REPOSITORY) private readonly unitRepository: UnitOfMeasureRepository,
     @Inject(EMAIL_PROVIDER) private readonly emailProvider: EmailProvider,
     private readonly currenciesService: CurrenciesService,
   ) {}
@@ -173,6 +175,7 @@ export class GrnService {
     const outlet = await this.getOutletOrThrow(grn.outletId);
     const supplier = await this.supplierRepository.findById(grn.supplierId);
     const items = await Promise.all(grn.lines.map((line) => this.itemRepository.findById(line.itemId)));
+    const units = await Promise.all(items.map((item) => (item ? this.unitRepository.findById(item.unitId) : null)));
 
     return generateDocumentPdf({
       documentTypeLabel: 'Goods Received Note',
@@ -187,7 +190,7 @@ export class GrnService {
       lines: grn.lines.map((line, index) => ({
         itemName: items[index]?.name ?? line.itemId,
         quantity: line.receivedQty,
-        unit: items[index]?.unit,
+        unit: units[index]?.abbreviation,
         unitPrice: line.actualPrice,
         taxComponents: line.taxComponents,
         lineTaxAmount: line.lineTaxAmount,

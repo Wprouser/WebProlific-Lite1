@@ -11,7 +11,8 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { ResponsiveTable, type ResponsiveTableColumn } from '@/components/ui/ResponsiveTable';
 import { ItemFormModal } from '@/components/items/ItemFormModal';
 import { CategoryManagerModal } from '@/components/items/CategoryManagerModal';
-import { categoriesApi, itemsApi, type ApiCategory, type ApiItem } from '@/lib/items-api';
+import { UnitManagerModal } from '@/components/items/UnitManagerModal';
+import { categoriesApi, itemsApi, unitsApi, type ApiCategory, type ApiItem, type ApiUnitOfMeasure } from '@/lib/items-api';
 import { taxRatesApi, type ApiTaxRate } from '@/lib/tax-rates-api';
 import { getSession } from '@/lib/auth-store';
 import { ApiError } from '@/lib/api-client';
@@ -33,6 +34,7 @@ export function Items() {
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<ApiItem[]>([]);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [units, setUnits] = useState<ApiUnitOfMeasure[]>([]);
   const [taxRates, setTaxRates] = useState<ApiTaxRate[]>([]);
 
   const [search, setSearch] = useState('');
@@ -42,6 +44,7 @@ export function Items() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [unitManagerOpen, setUnitManagerOpen] = useState(false);
 
   const loadItems = useCallback(async () => {
     setLoading(true);
@@ -69,10 +72,12 @@ export function Items() {
 
   useEffect(() => {
     categoriesApi.list().then(setCategories).catch(() => setCategories([]));
+    unitsApi.list().then(setUnits).catch(() => setUnits([]));
     taxRatesApi.list().then(setTaxRates).catch(() => setTaxRates([]));
   }, []);
 
   const categoryName = (categoryId: string) => categories.find((c) => c.id === categoryId)?.name ?? '—';
+  const unitAbbreviation = (unitId: string) => units.find((u) => u.id === unitId)?.abbreviation ?? '—';
 
   function openCreate() {
     setFormOpen(true);
@@ -85,6 +90,14 @@ export function Items() {
 
   function handleCreateCategory(category: ApiCategory) {
     setCategories((prev) => [...prev, category]);
+  }
+
+  function handleCreateUnit(unit: ApiUnitOfMeasure) {
+    setUnits((prev) => [...prev, unit]);
+  }
+
+  function handleUpdateUnit(unit: ApiUnitOfMeasure) {
+    setUnits((prev) => prev.map((u) => (u.id === unit.id ? unit : u)));
   }
 
   const columns: ResponsiveTableColumn<ApiItem>[] = [
@@ -116,7 +129,7 @@ export function Items() {
       render: (item) => (
         <span className="flex flex-wrap items-center gap-2">
           <span>
-            {item.currentStock} {t(`items.units.${item.unit}`)}
+            {item.currentStock} {unitAbbreviation(item.unitId)}
           </span>
           {Number(item.currentStock) < Number(item.minStock) && (
             <Badge variant="danger-solid">{t('items.status.lowStock')}</Badge>
@@ -151,6 +164,10 @@ export function Items() {
           <Button variant="outline" onClick={() => setCategoryManagerOpen(true)}>
             <Settings2 className="h-4 w-4" />
             {t('items.manageCategories')}
+          </Button>
+          <Button variant="outline" onClick={() => setUnitManagerOpen(true)}>
+            <Settings2 className="h-4 w-4" />
+            {t('items.manageUnits')}
           </Button>
           <Button variant="outline" onClick={() => navigate('/tax-rates')}>
             <Percent className="h-4 w-4" />
@@ -235,6 +252,7 @@ export function Items() {
         onOpenChange={setFormOpen}
         item={null}
         categories={categories}
+        units={units}
         taxRates={taxRates}
         outletId={outletId}
         onSaved={handleSaved}
@@ -245,6 +263,14 @@ export function Items() {
         categories={categories}
         outletId={outletId}
         onCreate={handleCreateCategory}
+      />
+      <UnitManagerModal
+        open={unitManagerOpen}
+        onOpenChange={setUnitManagerOpen}
+        units={units}
+        outletId={outletId}
+        onCreate={handleCreateUnit}
+        onUpdate={handleUpdateUnit}
       />
     </div>
   );

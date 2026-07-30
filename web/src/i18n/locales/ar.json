@@ -176,6 +176,7 @@
     "subtitle": "إدارة قائمة الأصناف والفئات لمنفذك",
     "addItem": "إضافة صنف",
     "manageCategories": "إدارة الفئات",
+    "manageUnits": "إدارة الوحدات",
     "manageTaxRates": "نسب الضريبة",
     "searchPlaceholder": "ابحث بالاسم أو رمز الصنف…",
     "loadError": "تعذر تحميل الأصناف",
@@ -235,6 +236,7 @@
       "defaultTaxRateId": "نسبة الضريبة الافتراضية",
       "defaultTaxRateIdPlaceholder": "اختياري",
       "defaultTaxRateIdInactiveOption": "{{name}} (غير نشطة)",
+      "inactiveOption": "{{name}} (غير نشطة)",
       "openingStockTitle": "الرصيد الافتتاحي",
       "openingStockHint": "يُسجَّل مرة واحدة عند الإنشاء — لا يمكن تعديله من هنا لاحقًا.",
       "openingQuantity": "الكمية",
@@ -252,13 +254,21 @@
       "add": "إضافة",
       "empty": "لا توجد فئات بعد"
     },
-    "units": {
-      "KG": "كيلوغرام (KG)",
-      "LITRE": "لتر (L)",
-      "PIECE": "قطعة",
-      "BOX": "صندوق",
-      "GRAM": "غرام (g)",
-      "ML": "مليلتر (ml)"
+    "unitManager": {
+      "title": "إدارة الوحدات",
+      "description": "وحدات القياس المستخدمة في نموذج الصنف — إلغاء تفعيل وحدة لا يؤثر أبدًا على الأصناف التي تستخدمها بالفعل.",
+      "namePlaceholder": "اسم وحدة جديدة (مثال: حزمة)",
+      "abbreviationPlaceholder": "الاختصار (مثال: حزمة)",
+      "baseUnitPlaceholder": "الوحدة الأساسية (اختياري)",
+      "conversionFactorPlaceholder": "معامل التحويل",
+      "baseUnitLabel": "1 {{thisAbbr}} = {{factor}} {{name}}",
+      "add": "إضافة",
+      "save": "حفظ",
+      "edit": "تعديل",
+      "deactivate": "إلغاء التفعيل",
+      "reactivate": "إعادة التفعيل",
+      "empty": "لا توجد وحدات بعد",
+      "saveError": "تعذر الحفظ. حاول مرة أخرى."
     },
     "detail": {
       "back": "العودة إلى الأصناف",

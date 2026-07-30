@@ -176,6 +176,7 @@
     "subtitle": "अपने आउटलेट की आइटम सूची और श्रेणियां प्रबंधित करें",
     "addItem": "आइटम जोड़ें",
     "manageCategories": "श्रेणियां प्रबंधित करें",
+    "manageUnits": "इकाइयां प्रबंधित करें",
     "manageTaxRates": "कर दरें",
     "searchPlaceholder": "नाम या SKU से खोजें…",
     "loadError": "आइटम लोड नहीं हो सके",
@@ -235,6 +236,7 @@
       "defaultTaxRateId": "डिफ़ॉल्ट कर दर",
       "defaultTaxRateIdPlaceholder": "वैकल्पिक",
       "defaultTaxRateIdInactiveOption": "{{name}} (निष्क्रिय)",
+      "inactiveOption": "{{name}} (निष्क्रिय)",
       "openingStockTitle": "प्रारंभिक स्टॉक",
       "openingStockHint": "केवल निर्माण के समय एक बार दर्ज किया जाता है — बाद में यहां संपादित नहीं किया जा सकता।",
       "openingQuantity": "मात्रा",
@@ -252,13 +254,21 @@
       "add": "जोड़ें",
       "empty": "अभी तक कोई श्रेणी नहीं"
     },
-    "units": {
-      "KG": "किलोग्राम (KG)",
-      "LITRE": "लीटर (L)",
-      "PIECE": "पीस",
-      "BOX": "बॉक्स",
-      "GRAM": "ग्राम (g)",
-      "ML": "मिलीलीटर (ml)"
+    "unitManager": {
+      "title": "इकाइयां प्रबंधित करें",
+      "description": "आइटम फॉर्म पर उपयोग होने वाली मापन इकाइयां — किसी इकाई को निष्क्रिय करने से उसका उपयोग कर रहे मौजूदा आइटम कभी प्रभावित नहीं होते।",
+      "namePlaceholder": "नई इकाई का नाम (जैसे बंच)",
+      "abbreviationPlaceholder": "संक्षिप्त रूप (जैसे bunch)",
+      "baseUnitPlaceholder": "आधार इकाई (वैकल्पिक)",
+      "conversionFactorPlaceholder": "रूपांतरण कारक",
+      "baseUnitLabel": "1 {{thisAbbr}} = {{factor}} {{name}}",
+      "add": "जोड़ें",
+      "save": "सहेजें",
+      "edit": "संपादित करें",
+      "deactivate": "निष्क्रिय करें",
+      "reactivate": "पुनः सक्रिय करें",
+      "empty": "अभी तक कोई इकाई नहीं",
+      "saveError": "सहेजा नहीं जा सका। कृपया पुनः प्रयास करें।"
     },
     "detail": {
       "back": "आइटम पर वापस जाएं",

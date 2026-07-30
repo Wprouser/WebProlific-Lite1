@@ -17,7 +17,7 @@ export interface CreateItemInput {
   categoryId: string;
   sku: string;
   barcode?: string;
-  unit: string;
+  unitId: string;
   minStock: string;
   maxStock: string;
   shelfLifeDays?: number;
@@ -43,7 +43,7 @@ export interface UpdateItemInput {
   categoryId?: string;
   sku?: string;
   barcode?: string | null;
-  unit?: string;
+  unitId?: string;
   minStock?: string;
   maxStock?: string;
   shelfLifeDays?: number | null;

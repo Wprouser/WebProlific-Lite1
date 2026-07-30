@@ -51,6 +51,7 @@ describe('Item Master (FR-01) e2e', () => {
     await prisma.stockTransaction.deleteMany();
     await prisma.item.deleteMany();
     await prisma.category.deleteMany();
+    await prisma.unitOfMeasure.deleteMany();
     await prisma.userAccess.deleteMany();
     await prisma.outlet.deleteMany();
     await prisma.property.deleteMany();
@@ -83,11 +84,14 @@ describe('Item Master (FR-01) e2e', () => {
     return prisma.category.create({ data: { name, outletId } });
   }
 
+  async function unitOfMeasure(outletId: string, name = 'Kilogram', abbreviation = 'kg') {
+    return prisma.unitOfMeasure.create({ data: { name, abbreviation, outletId } });
+  }
+
   function itemPayload(overrides: Record<string, unknown> = {}) {
     return {
       name: 'Basmati Rice',
       sku: 'RICE-BAS-001',
-      unit: 'KG',
       minStock: '10',
       maxStock: '100',
       costPrice: '85.50',
@@ -102,49 +106,52 @@ describe('Item Master (FR-01) e2e', () => {
   it('AC: cannot create two items with the same SKU', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner1@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
 
     await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id }))
       .expect(201);
 
     await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, barcode: undefined }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id, barcode: undefined }))
       .expect(409);
   });
 
   it('AC: cannot set minStock >= maxStock', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner2@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
 
     await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, minStock: '100', maxStock: '100' }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id, minStock: '100', maxStock: '100' }))
       .expect(400);
   });
 
   it('AC: GET /items?belowMinStock=true returns only items where currentStock < minStock', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner3@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
 
     const low = await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, sku: 'LOW-1', minStock: '50' }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id, sku: 'LOW-1', minStock: '50' }))
       .expect(201);
     // currentStock defaults to 0 on create — 0 < 50, so this one already
     // qualifies as below min stock without needing FR-02 to exist.
     const normal = await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, sku: 'NORMAL-1', minStock: '0' }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id, sku: 'NORMAL-1', minStock: '0' }))
       .expect(201);
 
     const res = await api()
@@ -160,12 +167,13 @@ describe('Item Master (FR-01) e2e', () => {
   it('rejects create for STORE_STAFF (view-only per the FR-11 permission matrix)', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('staff1@example.com', 'OUTLET', outlet.id, 'STORE_STAFF');
 
     await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id }))
       .expect(403);
   });
 
@@ -176,13 +184,14 @@ describe('Item Master (FR-01) e2e', () => {
   it('AC (FR-11): costPrice is present for OUTLET_MANAGER but stripped for CHEF, on both list and detail', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token: mgrToken } = await actor('mgr1@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
     const { token: chefToken } = await actor('chef1@example.com', 'OUTLET', outlet.id, 'CHEF');
 
     const created = await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${mgrToken}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id }))
       .expect(201);
 
     const chefDetail = await api()
@@ -206,6 +215,8 @@ describe('Item Master (FR-01) e2e', () => {
     const { outlet: outletB } = await chainWithOutlet('Pool Bar');
     const catA = await category(outletA.id);
     const catB = await category(outletB.id);
+    const unitA = await unitOfMeasure(outletA.id);
+    const unitB = await unitOfMeasure(outletB.id);
     const { token: creatorToken } = await actor('creator@example.com', 'OUTLET', outletA.id, 'OUTLET_MANAGER');
     await prisma.userAccess.create({
       data: { userId: (await prisma.user.findUniqueOrThrow({ where: { email: 'creator@example.com' } })).id, scopeType: 'OUTLET', scopeId: outletB.id, role: 'OUTLET_MANAGER' },
@@ -213,12 +224,12 @@ describe('Item Master (FR-01) e2e', () => {
     const itemA = await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${creatorToken}`)
-      .send(itemPayload({ outletId: outletA.id, categoryId: catA.id, sku: 'A-1' }))
+      .send(itemPayload({ outletId: outletA.id, categoryId: catA.id, unitId: unitA.id, sku: 'A-1' }))
       .expect(201);
     const itemB = await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${creatorToken}`)
-      .send(itemPayload({ outletId: outletB.id, categoryId: catB.id, sku: 'B-1' }))
+      .send(itemPayload({ outletId: outletB.id, categoryId: catB.id, unitId: unitB.id, sku: 'B-1' }))
       .expect(201);
 
     const mixedUser = await prisma.user.create({
@@ -245,12 +256,13 @@ describe('Item Master (FR-01) e2e', () => {
   it('AC: creating an item produces exactly one ActivityLog (category ITEM) and one TransactionLog (CREATE) row', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner4@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
 
     const res = await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id }))
       .expect(201);
 
     const activityRows = await prisma.activityLog.findMany({ where: { entityId: res.body.id } });
@@ -268,11 +280,12 @@ describe('Item Master (FR-01) e2e', () => {
   it('AC: updating two fields on an item produces exactly two TransactionLog rows, one per field', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner5@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
     const created = await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id }))
       .expect(201);
 
     await api()
@@ -293,11 +306,12 @@ describe('Item Master (FR-01) e2e', () => {
   it('AC: deactivating an item produces an ActivityLog + TransactionLog row and sets isActive false', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner6@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
     const created = await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id }))
       .expect(201);
 
     const res = await api()
@@ -354,6 +368,7 @@ describe('Item Master (FR-01) e2e', () => {
   it('AC: creating an item with openingStock produces a real OPENING_BALANCE StockTransaction, not a raw currentStock write', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner9@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
 
     const created = await api()
@@ -361,7 +376,7 @@ describe('Item Master (FR-01) e2e', () => {
       .set('Authorization', `Bearer ${token}`)
       .send(itemPayload({
         outletId: outlet.id,
-        categoryId: cat.id,
+        categoryId: cat.id, unitId: unit.id,
         openingStock: { quantity: '25.000', ratePerUnit: '85.50' },
       }))
       .expect(201);
@@ -378,12 +393,13 @@ describe('Item Master (FR-01) e2e', () => {
   it('creating an item without openingStock leaves currentStock at 0 with no StockTransaction row', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner10@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
 
     const created = await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id }))
       .expect(201);
 
     expect(created.body.currentStock).toBe('0.000');
@@ -398,6 +414,7 @@ describe('Item Master (FR-01) e2e', () => {
   it('round-trips purchaseGLAccount and defaultTaxRateId through create and update', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner11@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
 
     const created = await api()
@@ -405,7 +422,7 @@ describe('Item Master (FR-01) e2e', () => {
       .set('Authorization', `Bearer ${token}`)
       .send(itemPayload({
         outletId: outlet.id,
-        categoryId: cat.id,
+        categoryId: cat.id, unitId: unit.id,
         purchaseGLAccount: 'Cost of Goods Sold',
         defaultTaxRateId: 'tax-rate-placeholder',
       }))
@@ -429,6 +446,7 @@ describe('Item Master (FR-01) e2e', () => {
   it('AC: cloning an item copies master data but never copies sku or current stock', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner12@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
 
     const source = await api()
@@ -436,7 +454,7 @@ describe('Item Master (FR-01) e2e', () => {
       .set('Authorization', `Bearer ${token}`)
       .send(itemPayload({
         outletId: outlet.id,
-        categoryId: cat.id,
+        categoryId: cat.id, unitId: unit.id,
         storageLocation: 'Dry Store',
         openingStock: { quantity: '10.000', ratePerUnit: '85.50' },
       }))
@@ -461,12 +479,13 @@ describe('Item Master (FR-01) e2e', () => {
   it('rejects cloning into an already-used sku', async () => {
     const { outlet } = await chainWithOutlet();
     const cat = await category(outlet.id);
+    const unit = await unitOfMeasure(outlet.id);
     const { token } = await actor('owner13@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
 
     const source = await api()
       .post('/api/v1/items')
       .set('Authorization', `Bearer ${token}`)
-      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id }))
+      .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id }))
       .expect(201);
 
     await api()
@@ -490,11 +509,11 @@ describe('Item Master (FR-01) e2e', () => {
       'base64',
     );
 
-    async function createItem(token: string, outletId: string, categoryId: string) {
+    async function createItem(token: string, outletId: string, categoryId: string, unitId: string) {
       const res = await api()
         .post('/api/v1/items')
         .set('Authorization', `Bearer ${token}`)
-        .send(itemPayload({ outletId, categoryId }))
+        .send(itemPayload({ outletId, categoryId, unitId }))
         .expect(201);
       return res.body;
     }
@@ -502,8 +521,9 @@ describe('Item Master (FR-01) e2e', () => {
     it('AC: the first image uploaded is automatically primary; a second is not', async () => {
       const { outlet } = await chainWithOutlet();
       const cat = await category(outlet.id);
+      const unit = await unitOfMeasure(outlet.id);
       const { token } = await actor('owner14@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
-      const item = await createItem(token, outlet.id, cat.id);
+      const item = await createItem(token, outlet.id, cat.id, unit.id);
 
       const first = await api()
         .post(`/api/v1/items/${item.id}/images`)
@@ -531,8 +551,9 @@ describe('Item Master (FR-01) e2e', () => {
     it('AC: deleting the primary image promotes the next-oldest remaining image to primary', async () => {
       const { outlet } = await chainWithOutlet();
       const cat = await category(outlet.id);
+      const unit = await unitOfMeasure(outlet.id);
       const { token } = await actor('owner15@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
-      const item = await createItem(token, outlet.id, cat.id);
+      const item = await createItem(token, outlet.id, cat.id, unit.id);
 
       const first = await api()
         .post(`/api/v1/items/${item.id}/images`)
@@ -557,8 +578,9 @@ describe('Item Master (FR-01) e2e', () => {
     it('PATCH .../primary swaps which image is primary', async () => {
       const { outlet } = await chainWithOutlet();
       const cat = await category(outlet.id);
+      const unit = await unitOfMeasure(outlet.id);
       const { token } = await actor('owner16@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
-      const item = await createItem(token, outlet.id, cat.id);
+      const item = await createItem(token, outlet.id, cat.id, unit.id);
 
       const first = await api()
         .post(`/api/v1/items/${item.id}/images`)
@@ -585,13 +607,224 @@ describe('Item Master (FR-01) e2e', () => {
     it('rejects a non-image file upload', async () => {
       const { outlet } = await chainWithOutlet();
       const cat = await category(outlet.id);
+      const unit = await unitOfMeasure(outlet.id);
       const { token } = await actor('owner17@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
-      const item = await createItem(token, outlet.id, cat.id);
+      const item = await createItem(token, outlet.id, cat.id, unit.id);
 
       await api()
         .post(`/api/v1/items/${item.id}/images`)
         .set('Authorization', `Bearer ${token}`)
         .attach('file', Buffer.from('not an image'), 'notes.txt')
+        .expect(400);
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Units of Measure (spec expansion — replaces the old hardcoded enum)
+  // ---------------------------------------------------------------------
+
+  describe('units of measure', () => {
+    async function chainWithProperty() {
+      const chain = await prisma.chain.create({ data: { name: 'Al Waha Group' } });
+      const property = await prisma.property.create({
+        data: { chainId: chain.id, name: 'Jeddah Hotel', type: 'HOTEL' },
+      });
+      return { chain, property };
+    }
+
+    it('AC: a new outlet is seeded with the full 8-unit starter set (kg, g, L, mL, pc, box, dz, pack)', async () => {
+      const { property } = await chainWithProperty();
+      const { token } = await actor('unitowner1@example.com', 'PROPERTY', property.id, 'PROPERTY_MANAGER');
+
+      const outletRes = await api()
+        .post(`/api/v1/properties/${property.id}/outlets`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Main Restaurant', type: 'RESTAURANT' })
+        .expect(201);
+
+      const units = await prisma.unitOfMeasure.findMany({ where: { outletId: outletRes.body.id } });
+      expect(units.map((u) => u.abbreviation).sort()).toEqual(
+        ['kg', 'g', 'L', 'mL', 'pc', 'box', 'dz', 'pack'].sort(),
+      );
+      expect(units.every((u) => u.isActive)).toBe(true);
+    });
+
+    it('AC: the seeded Litre/Kilogram are wired as derived units (mL/g base, factor 1000) — Box/Dozen/Pack/Piece stay independent base units', async () => {
+      const { property } = await chainWithProperty();
+      const { token } = await actor('unitowner1b@example.com', 'PROPERTY', property.id, 'PROPERTY_MANAGER');
+
+      const outletRes = await api()
+        .post(`/api/v1/properties/${property.id}/outlets`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'Main Restaurant', type: 'RESTAURANT' })
+        .expect(201);
+
+      const units = await prisma.unitOfMeasure.findMany({ where: { outletId: outletRes.body.id } });
+      const byName = Object.fromEntries(units.map((u) => [u.name, u]));
+
+      expect(byName.Millilitre!.baseUnitId).toBeNull();
+      expect(byName.Gram!.baseUnitId).toBeNull();
+      expect(byName.Litre!.baseUnitId).toBe(byName.Millilitre!.id);
+      expect(byName.Litre!.conversionFactor!.toFixed(2)).toBe('1000.00');
+      expect(byName.Kilogram!.baseUnitId).toBe(byName.Gram!.id);
+      expect(byName.Kilogram!.conversionFactor!.toFixed(2)).toBe('1000.00');
+      for (const name of ['Piece', 'Box', 'Dozen', 'Pack']) {
+        expect(byName[name]!.baseUnitId).toBeNull();
+        expect(byName[name]!.conversionFactor).toBeNull();
+      }
+    });
+
+    it('AC: a user can add a custom unit of measure, and it immediately appears as a selectable option on the Item form', async () => {
+      const { outlet } = await chainWithOutlet();
+      const { token } = await actor('unitowner2@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+
+      const created = await api()
+        .post('/api/v1/items/units')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ outletId: outlet.id, name: 'Bunch', abbreviation: 'bunch' })
+        .expect(201);
+      expect(created.body.isActive).toBe(true);
+
+      const list = await api()
+        .get(`/api/v1/items/units?outletId=${outlet.id}&isActive=true`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(list.body.some((u: { id: string }) => u.id === created.body.id)).toBe(true);
+
+      // Immediately usable on a real Item, not just listed.
+      const cat = await category(outlet.id);
+      const item = await api()
+        .post('/api/v1/items')
+        .set('Authorization', `Bearer ${token}`)
+        .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: created.body.id }))
+        .expect(201);
+      expect(item.body.unitId).toBe(created.body.id);
+    });
+
+    it('rejects a duplicate unit name within the same outlet', async () => {
+      const { outlet } = await chainWithOutlet();
+      const { token } = await actor('unitowner3@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+
+      await api()
+        .post('/api/v1/items/units')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ outletId: outlet.id, name: 'Bunch', abbreviation: 'bunch' })
+        .expect(201);
+
+      await api()
+        .post('/api/v1/items/units')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ outletId: outlet.id, name: 'Bunch', abbreviation: 'bunch2' })
+        .expect(409);
+    });
+
+    it('rejects create for STORE_STAFF (view-only)', async () => {
+      const { outlet } = await chainWithOutlet();
+      const { token } = await actor('unitowner4@example.com', 'OUTLET', outlet.id, 'STORE_STAFF');
+
+      await api()
+        .post('/api/v1/items/units')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ outletId: outlet.id, name: 'Bunch', abbreviation: 'bunch' })
+        .expect(403);
+    });
+
+    it('PATCH edits name/abbreviation', async () => {
+      const { outlet } = await chainWithOutlet();
+      const { token } = await actor('unitowner5@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+      const unit = await unitOfMeasure(outlet.id, 'Sack', 'sack');
+
+      const updated = await api()
+        .patch(`/api/v1/items/units/${unit.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ abbreviation: 'sck' })
+        .expect(200);
+      expect(updated.body.abbreviation).toBe('sck');
+      expect(updated.body.name).toBe('Sack');
+    });
+
+    it('AC: deactivating a unit of measure does not affect any Item already using it — it only stops appearing as an option for new/edited items', async () => {
+      const { outlet } = await chainWithOutlet();
+      const { token } = await actor('unitowner6@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+      const cat = await category(outlet.id);
+      const unit = await unitOfMeasure(outlet.id, 'Tray', 'tray');
+
+      const item = await api()
+        .post('/api/v1/items')
+        .set('Authorization', `Bearer ${token}`)
+        .send(itemPayload({ outletId: outlet.id, categoryId: cat.id, unitId: unit.id }))
+        .expect(201);
+
+      const deactivated = await api()
+        .delete(`/api/v1/items/units/${unit.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(deactivated.body.isActive).toBe(false);
+
+      // The existing item keeps its reference untouched.
+      const reloadedItem = await api()
+        .get(`/api/v1/items/${item.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(reloadedItem.body.unitId).toBe(unit.id);
+
+      // But it no longer appears in the active-only list new/edited items pick from.
+      const activeUnits = await api()
+        .get(`/api/v1/items/units?outletId=${outlet.id}&isActive=true`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(activeUnits.body.some((u: { id: string }) => u.id === unit.id)).toBe(false);
+    });
+
+    it('AC: creates a derived unit converting to a genuine base unit', async () => {
+      const { outlet } = await chainWithOutlet();
+      const { token } = await actor('unitowner7@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+      const gram = await unitOfMeasure(outlet.id, 'Gram', 'g');
+
+      const created = await api()
+        .post('/api/v1/items/units')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ outletId: outlet.id, name: 'Kilogram', abbreviation: 'kg', baseUnitId: gram.id, conversionFactor: '1000' })
+        .expect(201);
+
+      expect(created.body.baseUnitId).toBe(gram.id);
+      expect(created.body.conversionFactor).toBe('1000.000000');
+    });
+
+    it('AC: rejects setting a Base Unit to another unit that already has its own Base Unit set (only a flat, two-level hierarchy is allowed)', async () => {
+      const { outlet } = await chainWithOutlet();
+      const { token } = await actor('unitowner8@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+      const gram = await unitOfMeasure(outlet.id, 'Gram', 'g');
+      const kilogram = await unitOfMeasure(outlet.id, 'Kilogram', 'kg');
+      await prisma.unitOfMeasure.update({
+        where: { id: kilogram.id },
+        data: { baseUnitId: gram.id, conversionFactor: '1000' },
+      });
+
+      await api()
+        .post('/api/v1/items/units')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ outletId: outlet.id, name: 'Tonne', abbreviation: 't', baseUnitId: kilogram.id, conversionFactor: '1000' })
+        .expect(400);
+    });
+
+    it('AC: rejects giving a Base Unit of its own to a unit that other units already depend on', async () => {
+      const { outlet } = await chainWithOutlet();
+      const { token } = await actor('unitowner9@example.com', 'OUTLET', outlet.id, 'OUTLET_MANAGER');
+      const gram = await unitOfMeasure(outlet.id, 'Gram', 'g');
+      const millilitre = await unitOfMeasure(outlet.id, 'Millilitre', 'mL');
+      const kilogram = await unitOfMeasure(outlet.id, 'Kilogram', 'kg');
+      await prisma.unitOfMeasure.update({
+        where: { id: kilogram.id },
+        data: { baseUnitId: gram.id, conversionFactor: '1000' },
+      });
+
+      // Gram is now in use as Kilogram's base — giving Gram a base unit of
+      // its own would retroactively turn Kilogram into a 3-level chain.
+      await api()
+        .patch(`/api/v1/items/units/${gram.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ baseUnitId: millilitre.id, conversionFactor: '1' })
         .expect(400);
     });
   });

@@ -8,6 +8,7 @@ import { ExchangeRateRepository } from '../../exchange-rates/repositories/exchan
 import { TaxRateRepository } from '../../tax-rates/repositories/tax-rate.repository';
 import { CurrenciesService } from '../../currencies/services/currencies.service';
 import { ItemRepository } from '../../items/repositories/item.repository';
+import { UnitOfMeasureRepository } from '../../items/repositories/unit-of-measure.repository';
 import { EmailProvider } from '../../email/providers/email.provider';
 import { RequestWithAccess } from '../../tenancy/types/request-with-access';
 
@@ -130,7 +131,10 @@ describe('PurchaseOrdersService', () => {
       getOrThrow: jest.fn().mockResolvedValue({ code: 'SAR', name: 'Saudi Riyal', symbol: 'SAR', decimalPlaces: 2 }),
     };
     const itemRepository: Partial<ItemRepository> = {
-      findById: jest.fn().mockResolvedValue({ id: 'i1', name: 'Basmati Rice', unit: 'KG' }),
+      findById: jest.fn().mockResolvedValue({ id: 'i1', name: 'Basmati Rice', unitId: 'u1' }),
+    };
+    const unitRepository: Partial<UnitOfMeasureRepository> = {
+      findById: jest.fn().mockResolvedValue({ id: 'u1', name: 'Kilogram', abbreviation: 'kg' }),
     };
     const emailProvider: Partial<EmailProvider> = {
       send: jest.fn().mockResolvedValue(undefined),
@@ -142,6 +146,7 @@ describe('PurchaseOrdersService', () => {
       exchangeRateRepository as ExchangeRateRepository,
       taxRateRepository as TaxRateRepository,
       itemRepository as ItemRepository,
+      unitRepository as UnitOfMeasureRepository,
       emailProvider as EmailProvider,
       currenciesService as CurrenciesService,
     );

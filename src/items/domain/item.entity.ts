@@ -5,7 +5,7 @@ export interface Item {
   categoryId: string;
   sku: string;
   barcode: string | null;
-  unit: string;
+  unitId: string;
   minStock: string; // Decimal serialized as string at the repository boundary
   maxStock: string;
   currentStock: string;

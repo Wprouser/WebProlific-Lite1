@@ -18,9 +18,11 @@ import {
   categoriesApi,
   itemImagesApi,
   itemsApi,
+  unitsApi,
   type ApiCategory,
   type ApiItem,
   type ApiItemImage,
+  type ApiUnitOfMeasure,
 } from '@/lib/items-api';
 import { taxRatesApi, type ApiTaxRate } from '@/lib/tax-rates-api';
 import { stockTransactionsApi, type ApiStockTransaction } from '@/lib/stock-transactions-api';
@@ -45,6 +47,7 @@ export function ItemDetail() {
 
   const [item, setItem] = useState<ApiItem | null>(null);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [units, setUnits] = useState<ApiUnitOfMeasure[]>([]);
   const [taxRates, setTaxRates] = useState<ApiTaxRate[]>([]);
   const [images, setImages] = useState<ApiItemImage[]>([]);
   const [transactions, setTransactions] = useState<ApiStockTransaction[]>([]);
@@ -89,6 +92,7 @@ export function ItemDetail() {
 
   useEffect(() => {
     categoriesApi.list().then(setCategories).catch(() => setCategories([]));
+    unitsApi.list().then(setUnits).catch(() => setUnits([]));
     taxRatesApi.list().then(setTaxRates).catch(() => setTaxRates([]));
   }, []);
 
@@ -162,6 +166,7 @@ export function ItemDetail() {
   }
 
   const categoryName = categories.find((c) => c.id === item.categoryId)?.name ?? '—';
+  const unitAbbreviation = units.find((u) => u.id === item.unitId)?.abbreviation ?? '—';
   const taxRateName = taxRates.find((r) => r.id === item.defaultTaxRateId)?.name ?? item.defaultTaxRateId;
   const primaryImage = images.find((img) => img.isPrimary) ?? images[0];
   const openingBalanceTxn = transactions.find((txn) => txn.type === 'OPENING_BALANCE');
@@ -291,7 +296,7 @@ export function ItemDetail() {
               <Card>
                 <CardContent className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
                   <OverviewField label={t('items.detail.overview.category')} value={categoryName} />
-                  <OverviewField label={t('items.detail.overview.unit')} value={t(`items.units.${item.unit}`)} />
+                  <OverviewField label={t('items.detail.overview.unit')} value={unitAbbreviation} />
                   <OverviewField
                     label={t('items.detail.overview.reorderPoint')}
                     value={`${item.minStock} / ${item.maxStock}`}
@@ -365,13 +370,13 @@ export function ItemDetail() {
           <CardContent className="flex flex-col gap-4 pt-4">
             <SummaryRow
               label={t('items.detail.currentStock')}
-              value={`${item.currentStock} ${t(`items.units.${item.unit}`)}`}
+              value={`${item.currentStock} ${unitAbbreviation}`}
             />
             {stockValue !== null && <SummaryRow label={t('items.detail.stockValue')} value={stockValue} />}
             {openingBalanceTxn && (
               <SummaryRow
                 label={t('items.detail.openingStock')}
-                value={`${openingBalanceTxn.quantity} ${t(`items.units.${item.unit}`)}${
+                value={`${openingBalanceTxn.quantity} ${unitAbbreviation}${
                   item.costPrice ? ` @ ${item.costPrice}` : ''
                 }`}
               />
@@ -385,6 +390,7 @@ export function ItemDetail() {
         onOpenChange={setEditOpen}
         item={item}
         categories={categories}
+        units={units}
         taxRates={taxRates}
         outletId={outletId}
         onSaved={handleSaved}

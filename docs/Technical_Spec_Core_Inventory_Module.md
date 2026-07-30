@@ -160,7 +160,8 @@ model Item {
   category        Category @relation(fields: [categoryId], references: [id])
   sku             String   @unique
   barcode         String?  @unique
-  unit            Unit     // enum: KG, LITRE, PIECE, BOX, GRAM, ML
+  unitId          String   // FK to UnitOfMeasure — see below; no longer a hardcoded enum
+  unit            UnitOfMeasure @relation(fields: [unitId], references: [id])
   minStock        Decimal  @db.Decimal(10,3)   // "Reorder Point" in UI copy
   maxStock        Decimal  @db.Decimal(10,3)
   currentStock    Decimal  @db.Decimal(10,3) @default(0)  // denormalized, updated via StockTransaction
@@ -176,6 +177,7 @@ model Item {
 
   @@index([outletId, isActive])
   @@index([categoryId])
+  @@index([unitId])
 }
 
 model ItemImage {
@@ -193,9 +195,50 @@ model Category {
   id       String @id @default(uuid())
   name     String
   outletId String
+  isActive Boolean @default(true)
   @@unique([name, outletId])
 }
+
+model UnitOfMeasure {
+  id                String   @id @default(uuid())
+  outletId          String
+  name              String   // e.g. "Kilogram", "Dozen", "Bunch", "Tray", "Sack"
+  abbreviation      String   // e.g. "kg", "dz", "bunch", "tray", "sack" — shown in compact UI contexts (tables, item cards)
+  baseUnitId        String?  // FK to another UnitOfMeasure — null means this unit IS a base unit (the root of its own conversion family); non-null means this unit converts TO that base
+  baseUnit          UnitOfMeasure? @relation("UnitConversion", fields: [baseUnitId], references: [id])
+  derivedUnits      UnitOfMeasure[] @relation("UnitConversion")
+  conversionFactor  Decimal? @db.Decimal(12,6)  // required if baseUnitId is set; how many base-unit quantities equal 1 of this unit (e.g., Litre.conversionFactor = 1000 when baseUnit = Millilitre, meaning 1 Litre = 1000 mL). Null when this unit has no baseUnitId (a base unit doesn't convert to anything).
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([name, outletId])
+  @@index([outletId, isActive])
+  @@index([baseUnitId])
+}
 ```
+
+**On why Unit changed from a hardcoded enum to a real master table:** the original design (a fixed 6-value enum: KG, LITRE, PIECE, BOX, GRAM, ML) was too restrictive for real F&B operations — common real-world units like "dozen," "bunch" (herbs), "tray" (eggs), "sack" (rice/flour), "carton," or "pack" simply couldn't be represented, and a hardcoded enum can't be extended by a user, only by a code change. Unit of Measure now follows the **exact same pattern as Category**: a per-outlet master table, managed from its own screen, seeded with sensible defaults on outlet creation, but fully user-extensible.
+
+**Unit conversion — base units and a flat, two-level hierarchy only:** a unit is either a **base unit** (`baseUnitId: null`) or a **derived unit** that converts to exactly one base unit at a fixed `conversionFactor`. For example: Millilitre is a base unit (`baseUnitId: null`); Litre is a derived unit (`baseUnitId: <Millilitre's id>`, `conversionFactor: 1000`, meaning 1 Litre = 1000 mL). Two units that share the same base (directly, or one of them *is* the base) become automatically convertible to each other via that shared base — this is what lets the system later convert "250 ml" of an ingredient into the correct deduction from an item stocked in Litres (a direct, practical use case for FR-05's Recipe/BOM, where a recipe's natural unit for a small quantity often differs from the item's stocking unit).
+
+**Deliberate scope boundary — no chained/transitive conversion beyond two levels:** a unit's `baseUnitId` must always point to a unit that **itself has no `baseUnitId`** (i.e., you can't make a unit that converts to another *derived* unit, only to a genuine base unit). This keeps conversion logic simple and bounded (a lookup plus one multiplication/division, always) rather than requiring a general graph-traversal/transitive-closure system. In practice this covers the common real cases (weight: g↔kg; volume: mL↔L) without unbounded complexity; validated on save — attempting to set a unit's `baseUnitId` to another unit that already has its own `baseUnitId` set is rejected with a clear error.
+
+**Conversion business rules:**
+- If `baseUnitId` is null, `conversionFactor` must also be null — a base unit has nothing to convert from.
+- If `baseUnitId` is set, `conversionFactor` is required and must be `> 0`.
+- Converting a quantity from Unit A to Unit B is only possible if they share the same base (or one of them is the shared base) — units from unrelated families (e.g., Kilogram and Litre — weight vs. volume) are never convertible, and any code attempting this must reject it, not silently produce a nonsensical result.
+- Conversion formula, given both units resolve to the same `baseUnit`: `quantityInBase = quantity * (unit.conversionFactor ?? 1)`; then `quantityInTargetUnit = quantityInBase / (targetUnit.conversionFactor ?? 1)`.
+- Not every unit needs a conversion relationship — a unit like "Box" or "Sack" with no fixed, universal size can simply remain its own independent base unit (`baseUnitId: null`) with no derived units — conversion support is opt-in per unit family, not mandatory for every unit in the system.
+
+**Unit Management screen:** reachable from the Items screen (same tier and pattern as "Manage categories") — a list (Name, Abbreviation, Base Unit if applicable, Active status) with Add/Edit/Deactivate actions, following the identical soft-deactivation convention used everywhere else (never hard-deleted, since a unit may already be referenced by historical Items/transactions). The Add/Edit form includes an optional "Base Unit" dropdown (populated only with units that are themselves base units — i.e., `baseUnitId: null` — per the flat-hierarchy rule) and a "Conversion Factor" field that only appears/enables once a base unit is selected.
+
+**Default seeding (via the same `outlet.created` event-listener pattern already used for Categories and Tax Rates):** every new outlet is seeded with a starter set of common units, including sensible conversion relationships out of the box:
+- **Millilitre (ml)** — base unit
+- **Litre (L)** — derived, base = Millilitre, factor = 1000
+- **Gram (g)** — base unit
+- **Kilogram (kg)** — derived, base = Gram, factor = 1000
+- **Piece (pc)**, **Box (box)**, **Dozen (dz)**, **Pack (pack)** — each its own independent base unit, no conversion relationship (box/pack sizes vary too much to assume a fixed factor)
 
 **On the reference screenshots' "Inventory Valuation Method" (FIFO) and "Committed Stock" concepts:** both are deliberately **not** built in this pass. FIFO/weighted-average costing requires lot/batch-level cost tracking (knowing which specific batch of stock is being consumed, at what cost, in what order) — a meaningful scope increase over the single denormalized `costPrice` this spec uses. "Committed Stock" (stock reserved against a pending sales order) doesn't apply here, since this system doesn't take customer orders — it's an internal kitchen/store tool, not a sales/e-commerce platform. Both are reasonable *future* enhancements if the product ever needs precise cost-layer accounting, but are explicitly out of scope for FR-01 — don't build them now.
 
@@ -212,6 +255,10 @@ model Category {
 | `POST` | `/items/bulk-import` | CSV/Excel bulk import (multipart file upload) |
 | `GET` | `/items/categories` | List categories |
 | `POST` | `/items/categories` | Create category |
+| `GET` | `/items/units` | List units of measure (filter: `isActive`) |
+| `POST` | `/items/units` | Create a unit of measure |
+| `PATCH` | `/items/units/:id` | Edit a unit's name/abbreviation |
+| `DELETE` | `/items/units/:id` | Deactivate a unit (soft — never hard-deleted, since historical Items may reference it) |
 | `POST` | `/items/:id/images` | Upload an item image (multipart) — first image uploaded is automatically marked primary |
 | `PATCH` | `/items/:id/images/:imageId/primary` | Mark a different image as primary |
 | `DELETE` | `/items/:id/images/:imageId` | Remove an image |
@@ -263,6 +310,13 @@ Restructured as a dedicated detail view (not just an edit form) — reference: t
 - [ ] `GET /items?belowMinStock=true` returns only items where `currentStock < minStock`
 - [ ] Creating an item with `openingStock` produces a real `StockTransaction` (`OPENING_BALANCE`) via the FR-02 service, not a raw `currentStock` write
 - [ ] Cloning an item copies master data but never copies SKU or current stock
+- [ ] A new outlet is seeded with a starter set of common units of measure (kg, g, L, mL, pc, box, dz, pack), not a bare minimum, since users can only add more via the Unit Management screen
+- [ ] A user can add a custom unit of measure (e.g., "Bunch," "Sack," "Tray") from the Unit Management screen, and it immediately appears as a selectable option on the Item form
+- [ ] Deactivating a unit of measure does not affect any Item already using it — it only stops appearing as an option for new/edited items
+- [ ] A derived unit's conversion (e.g., Litre → Millilitre) correctly computes both directions (e.g., 1.5 L = 1500 mL, and 1500 mL = 1.5 L)
+- [ ] Setting a unit's Base Unit to another unit that already has its own Base Unit set is rejected — only a flat, two-level hierarchy is allowed
+- [ ] Attempting to convert between two units that don't share a base (e.g., Kilogram and Litre) is rejected, never silently producing an incorrect result
+- [ ] A unit with no Base Unit set (e.g., Box, Pack) works normally with no conversion capability — this is valid, not an error
 - [ ] The item detail screen has no "Delete" action anywhere — only "Mark as Inactive" / "Reactivate"
 - [ ] Deleting the primary image (when other images exist) automatically promotes another image to primary, never leaving the item with zero primary images while images still exist
 
@@ -451,8 +505,8 @@ model PurchaseOrder {
   currencyCode        String   @default("SAR")   // ISO 4217, e.g. SAR, AED, USD, INR
   exchangeRateToBase  Decimal  @db.Decimal(12,6) @default(1)  // rate at time of PO creation, vs outlet's base currency — user-editable inline on the form, per the UX enhancement above
   isTaxInclusive      Boolean  @default(false)   // "Item Rates Are: Tax Exclusive/Inclusive" toggle — affects how every line's price is interpreted, see Business Logic
-  discountAmount      Decimal  @db.Decimal(12,2) @default(0)  // optional manual reduction — included in totalValue, shown as its own labeled line
-  otherChargesAmount  Decimal  @db.Decimal(12,2) @default(0)  // optional manual addition (rounding, freight, misc.) — included in totalValue, shown as its own labeled line
+  discountAmount       Decimal  @db.Decimal(12,2) @default(0)  // optional manual reduction — shown as its own labeled line
+  otherChargesAmount   Decimal  @db.Decimal(12,2) @default(0)  // optional manual addition (freight, rounding, misc. fees) — shown as its own labeled line
   subtotal            Decimal  @db.Decimal(12,2)  // sum of line amounts before tax
   taxAmount           Decimal  @db.Decimal(12,2)  // sum of line tax amounts
   totalValue          Decimal  @db.Decimal(12,2)  // subtotal + taxAmount - discountAmount + otherChargesAmount, in currencyCode
@@ -495,12 +549,13 @@ model GRN {
   currencyCode    String   // inherited from PO if linked, otherwise chosen directly on the GRN
   exchangeRateToBase Decimal @db.Decimal(12,6)   // user-editable inline on the form, per the UX enhancement above
   isTaxInclusive  Boolean  @default(false)   // "Item Rates Are: Tax Exclusive/Inclusive" toggle — inherited from the PO if linked, otherwise set directly
-  discountAmount  Decimal @db.Decimal(12,2) @default(0)  // optional manual reduction — included in totalValue
-  otherChargesAmount Decimal @db.Decimal(12,2) @default(0)  // optional manual addition (rounding, freight, misc.) — included in totalValue
+  discountAmount  Decimal  @db.Decimal(12,2) @default(0)  // optional manual reduction — shown as its own labeled line
+  otherChargesAmount Decimal @db.Decimal(12,2) @default(0)  // optional manual addition (freight, rounding, misc. fees) — shown as its own labeled line
   subtotal        Decimal  @db.Decimal(12,2)
   taxAmount       Decimal  @db.Decimal(12,2)   // 0 if no tax applied at all — tax is optional, see Business Logic
   totalValue      Decimal  @db.Decimal(12,2)   // subtotal + taxAmount - discountAmount + otherChargesAmount
-  invoiceNumber   String?  // supplier's invoice/bill reference number, entered manually or extracted via scan
+  invoiceNumber   String?  // supplier's invoice/bill reference number, entered manually or extracted via scan — the actual VAT/tax invoice, which may arrive separately from or after physical delivery
+  challanNumber   String?  // supplier's delivery challan / dispatch note number — the document that typically accompanies goods AT the moment of physical delivery, often distinct from (and preceding) the formal invoice; both fields are optional and independent, since not every supplier issues both
   invoiceScanUrl  String?  // object-storage URL of the uploaded/scanned invoice image, if provided
   invoiceScanStatus String? // 'NONE' | 'UPLOADED' | 'PROCESSING' | 'EXTRACTED' | 'FAILED' — tracks AI-04 OCR extraction state
   lines           GRNLine[]
@@ -522,6 +577,10 @@ model GRNLine {
   lineSubtotal  Decimal @db.Decimal(12,2)
   lineTaxAmount Decimal @db.Decimal(12,2)   // 0 when no tax rate is applied
   lineTotal     Decimal @db.Decimal(12,2)
+  batchOrLotNumber String?  // optional — the specific batch/lot received, as marked by the supplier; distinct from the Item's generic shelfLifeDays estimate
+  expiryDate    DateTime?  // optional — the ACTUAL expiry of this specific received batch, if known/marked; more precise than Item.shelfLifeDays, which is only a fallback estimate when a batch-level date isn't available
+  qualityCheckStatus String @default("OK")  // 'OK' | 'PARTIAL' | 'REJECTED' — a receiving-time quality gate, distinct from the quantity-variance check; String per the SQL Server enum-compatibility pattern
+  qualityCheckNotes String?  // e.g. reason for a PARTIAL/REJECTED status
   taxComponents GRNLineTaxComponent[]   // populated only if the applied TaxRate was compound; empty for a simple flat-rate tax
 }
 
@@ -718,11 +777,61 @@ The GRN screen supports exactly three ways to start creating a GRN. All three co
 
 **Hard rule across all three flows: a GRN can never be saved without a supplier.** This isn't just a UI validation — `GRN.supplierId` is a required, non-nullable field at the schema level (see Data Model above), so it's enforced server-side regardless of which of the three flows was used to get there.
 
-**GRN amount display — Net, Tax, and Gross, shown clearly on both the line level and the GRN total:**
+**GRN amount display — Net, Tax, Discount, Other Charges, and Gross, shown clearly on both the line level and the GRN total:**
 - **Net Amount** = `subtotal` (sum of line amounts before tax)
 - **Tax Amount** = `taxAmount` (sum of line tax amounts — `0` if no tax was applied to any line, per the optional-tax rule above)
-- **Gross Amount** = `totalValue` (`subtotal + taxAmount`) — this is the final payable amount
-These three figures must always be visibly labeled as **Net / Tax / Gross** on the GRN screen (not just "Subtotal/Tax/Total," to match standard invoicing terminology suppliers and accountants expect), both as a running total at the top/bottom of the GRN form and, where space allows, per line.
+- **Discount** = `discountAmount` (optional, reduces the total) — shown as its own labeled line, `0` if not used
+- **Other Charges** = `otherChargesAmount` (optional, e.g. freight — adds to the total) — shown as its own labeled line, `0` if not used
+- **Gross Amount** = `totalValue` (`subtotal + taxAmount - discountAmount + otherChargesAmount`) — this is the final payable amount
+These figures must always be visibly labeled as **Net / Tax / Discount / Other Charges / Gross** on the GRN screen (not just "Subtotal/Tax/Total," to match standard invoicing terminology suppliers and accountants expect), both as a running total at the top/bottom of the GRN form and, where space allows, per line. Discount and Other Charges lines can be hidden/collapsed when both are `0`, to avoid cluttering the common case where neither is used.
+
+**Batch/lot tracking and quality check at receipt (GRN lines only — never on PO, since these are only knowable at the moment of actual physical receipt):**
+- Each GRN line optionally captures a **batch/lot number** and an **expiry date** for that specific received batch — more precise than the Item's generic `shelfLifeDays` estimate, and genuinely useful for perishables in an F&B context (FIFO rotation, food-safety recall tracing). Both fields are optional; if omitted, the system falls back to the Item's `shelfLifeDays` estimate for expiry-warning purposes (FR-07).
+- Each GRN line has a **Quality Check status** (`OK` / `PARTIAL` / `REJECTED`), separate from the quantity-variance check — a line can match its ordered quantity exactly but still fail quality (e.g., damaged produce), or vice versa. A `REJECTED` line's `receivedQty` should typically be `0` (nothing usable was actually received), while `PARTIAL` allows a reduced `receivedQty` alongside `qualityCheckNotes` explaining why.
+
+**Finalizing a GRN — "Post Received Items," not just "Save," with a preview:**
+- The action that finalizes a GRN (creating the actual `StockTransaction` rows, updating `Item.currentStock`, and — if PO-linked — updating `POLine.receivedQty`/PO status) is labeled **"Post Received Items"**, not a generic "Save" — this makes it clear to the user that confirming this action has real, immediate stock-level consequences, not just saving a draft.
+- Before posting, show an **Inventory Impact preview** — a small summary (e.g., "5 items will be added to stock") derived from the currently-entered lines, so the user sees the consequence of their entry before committing. This is a read-only computed preview, not a separate API call with side effects — it's derived from the same line data already on the form.
+- A GRN can still be saved as a `DRAFT` (not yet posted) if the user isn't ready to finalize — "Post Received Items" is the action that transitions it out of draft and triggers the real stock-transaction creation.
+
+**Future AI hook — not built in this pass:** the SDLC document's **AI-09 (Supplier Price Intelligence)** roadmap item is a natural fit for this screen — e.g., a per-line badge showing how a price compares to recent history, or a summary callout like "you're getting a better price than last time on 3 items." The PO/GRN line-item table and summary panel should be built with a sensible place for this kind of callout to slot in later (e.g., a dedicated column or a summary-panel card), but no placeholder AI badges or fabricated recommendations should be built now — that would be worse than no badge at all. This stays backlog until AI-09 is actually scoped.
+
+### PO & GRN Screen Structure — List (Summary) vs. Detail
+
+Both PO and GRN follow the same two-tier structure already established for Items (FR-01's Item Detail Screen), scaled up for a more data-heavy document:
+
+**1. List/Summary screen** (`/purchase-orders`, `/grn`) — a `ResponsiveTable` (per FR-17) showing the key at-a-glance columns for every record, filterable and sortable, so a manager can scan status/value across many orders without opening each one:
+- **PO list columns:** PO Number, Supplier, Status (badge, using the operational severity colors from FR-17 where relevant — e.g., `PENDING_APPROVAL` in warning-amber), Order Date, Expected Delivery, Gross Amount, Currency
+- **GRN list columns:** GRN Number, Linked PO (or "Direct" / "Scanned" badge if not linked), Supplier, Received Date, Gross Amount, Variance flag (if applicable)
+
+**2. Detail screen** (`/purchase-orders/:id`, `/grn/:id`) — structured in two clear parts, not one long flat form:
+
+- **Summary header** (always visible, top of the page): PO/GRN number, status badge, supplier name (linked to the supplier's own detail page), key dates, and the **Net / Tax / Gross totals** prominently displayed — this is the "glance at it and know what it is" section. Action buttons live here too: Edit (if still editable — e.g., a PO in `DRAFT`), Print, Email, Approve/Reject (if applicable to current status and the viewer's role), and — on a PO specifically — **"Create GRN"** (pre-selecting this PO on the GRN entry screen, per the earlier "GRN Entry Screen" section).
+
+- **Details body**, organized into clear sections/tabs below the summary header:
+  - **Line Items** — the full itemized table: item, quantity (ordered vs. received, for a PO with GRN history), unit price, tax (with compound-tax component breakdown shown inline per line where applicable, per the Tax Configuration work), line total.
+  - **GRN History** (PO detail screen only) — every GRN received against this PO, with received-vs-ordered quantities and any variance flags, so it's easy to see the full fulfillment history of one PO at a glance without navigating away.
+  - **Linked Purchase Order** (GRN detail screen only, if applicable) — a summary card linking back to the originating PO, or a clear "Direct GRN — no linked PO" / "Created from scanned invoice" indicator if not.
+  - **Invoice Scan** (GRN detail screen only, if this GRN came from Flow 3) — the uploaded invoice image/PDF, viewable inline, alongside the extracted data that was used to populate the form.
+  - **Activity & Changes** — this record's `ActivityLog` and `TransactionLog` entries (FR-18) — who approved it, when it was edited, what changed — the same "History" concept already established on the Item Detail Screen.
+
+This structure keeps the summary header lightweight and scannable while still giving full access to every underlying detail — consistent with how the Item Detail Screen already separates "what you need at a glance" from "everything else," just scaled to a more complex document.
+
+### Acceptance Criteria (PO & GRN Screen Structure)
+- [ ] The PO and GRN list screens show the specified summary columns and support filtering/sorting, without requiring the user to open each record individually to see its status/value
+- [ ] The PO/GRN detail screen has a clearly separated summary header (status, supplier, dates, Net/Tax/Gross totals, actions) distinct from the detailed line-item/history body below it
+- [ ] A PO's detail screen shows its full GRN history (every GRN received against it), not just its own line items
+- [ ] A GRN's detail screen clearly indicates its origin (linked PO, Direct entry, or Scanned invoice) and shows the relevant supporting detail for that origin
+- [ ] Both detail screens show Activity/Change history (FR-18) for that specific record
+
+### PO & GRN Are Full Pages, Never Modals
+
+Unlike Item, Category, or Tax Rate (a handful of fields, appropriately handled in a modal), **Purchase Order and GRN creation, editing, and detail views must be full, dedicated pages** rendered in the main content area (to the right of the sidebar, within the existing `AppShell`) — never a modal/dialog overlay. Reasons this matters concretely, not just as a preference:
+- These are multi-line documents (potentially many item rows) plus tax breakdown, currency/exchange rate, invoice scanning, and Net/Tax/Gross totals — this needs real screen width and vertical space to be usable, which a modal inherently constrains.
+- The three-flow GRN entry screen (Direct / Against PO / Scan Invoice) is itself a navigable screen with its own state, not a single quick action — it doesn't fit the "modal for a quick edit" pattern the rest of the app uses.
+- Users need to navigate directly to a specific PO/GRN via URL (e.g., for the Print/Email actions, or returning to review one later) — proper routes (`/purchase-orders/:id`, `/purchase-orders/new`, `/grn/:id`, `/grn/new`) support this naturally; a modal does not have its own shareable/bookmarkable URL in the same way.
+
+Concretely: `/purchase-orders` (list) → `/purchase-orders/new` (create) → `/purchase-orders/:id` (detail/edit) and `/grn` (list) → `/grn/new` (the three-flow entry screen) → `/grn/:id` (detail/edit) are all real, routed, full pages — consistent with how `/items` already works as a list route, but note Item's *create/edit* uses a modal (appropriate for its smaller field count) while PO/GRN's create/edit does not.
 
 ### GRN Entry Screen — Making All Three Flows Visible
 
@@ -775,6 +884,11 @@ A Purchase Order exists to be **sent to a supplier** — it isn't useful sitting
 - [ ] Attempting to email with no valid recipient email (none on file, none provided) is rejected with a clear error, not a silent failure
 - [ ] A successful email send is recorded and visibly shown on the PO/GRN detail screen (timestamp + recipient), and produces an Activity Log entry
 - [ ] Emailing a `DRAFT` (unapproved) PO shows a confirmation prompt before sending
+- [ ] A GRN line can optionally record a batch/lot number and expiry date; if omitted, expiry-warning logic (FR-07) falls back to the Item's `shelfLifeDays` estimate
+- [ ] A GRN line's Quality Check status (OK/Partial/Rejected) is independent of its quantity-variance status — a line can fail one without the other
+- [ ] Discount and Other Charges are shown as distinct, separately labeled lines in the Net/Tax/Gross summary, both defaulting to 0 and collapsible when unused
+- [ ] The GRN finalize action is labeled "Post Received Items," and shows an Inventory Impact preview (derived from current line data) before the user commits
+- [ ] A GRN can be saved as a Draft without triggering stock transactions; only "Post Received Items" creates them
 
 ### PO & GRN Screen Structure and UX Enhancements
 
@@ -788,7 +902,7 @@ A Purchase Order exists to be **sent to a supplier** — it isn't useful sitting
   - **Tax Inclusive**: the entered `price` already includes tax — the system must reverse-calculate: `lineSubtotal = lineTotal / (1 + ratePercent/100)`, `lineTaxAmount = lineTotal - lineSubtotal`, where `lineTotal = qty * price` (the price as entered). This matters because some suppliers quote inclusive prices — getting this wrong silently overcharges or undercharges tax on every line.
   - This toggle only makes sense when at least one line has a tax rate applied — if no tax is applied at all on the document, exclusive/inclusive is moot.
 - **Current stock shown inline in the item picker**, when adding a line — e.g., "Current stock: 12.5 kg" displayed next to the item once selected, so the person creating the PO/GRN can see at a glance whether they're about to order something already well-stocked, without leaving the form to check.
-- **Document-level Discount and Other Charges fields** (optional, separate from tax and from each other) — Discount is a manual reduction; Other Charges covers rounding, freight, or miscellaneous fees that don't belong to any specific line. Both default to 0.00. Discount is subtracted and Other Charges is added into the Gross Amount total; each is shown as its own labeled line in the Net/Tax/Discount/Other Charges/Gross summary (e.g., "Net: X, Tax: Y, Discount: -D, Other Charges: C, Gross: X+Y-D+C") — collapsed/hidden when its value is 0, to avoid clutter in the common case where neither applies.
+- **Document-level "Adjustment" field** (optional, separate from tax) — a single manual add/subtract amount for things like rounding, freight charges, or miscellaneous fees that don't belong to any specific line. Added into the Gross Amount total, shown as its own labeled line in the Net/Tax/Gross summary (e.g., "Net: X, Tax: Y, Adjustment: Z, Gross: X+Y+Z").
 - **Currency shown as a small badge next to the supplier selector**, immediately visible once a supplier is chosen (pre-filled from the supplier's `preferredCurrency`, per FR-03), rather than only appearing once the user scrolls to a separate currency field.
 
 ### Business Logic
@@ -828,7 +942,7 @@ A Purchase Order exists to be **sent to a supplier** — it isn't useful sitting
 - [ ] The exchange rate is visibly displayed and editable inline on the PO/GRN form whenever the document currency differs from the outlet's base currency
 - [ ] Setting a document to "Tax Inclusive" correctly reverse-calculates `lineSubtotal`/`lineTaxAmount` from the entered price, rather than adding tax on top of it
 - [ ] The item picker shows the selected item's current stock level inline, without requiring navigation away from the PO/GRN form
-- [ ] A document-level Discount and/or Other Charges amount, if entered, is correctly included in the Gross Amount and shown as its own labeled line in the Net/Tax/Discount/Other Charges/Gross summary — hidden when zero
+- [ ] A document-level Adjustment amount, if entered, is correctly included in the Gross Amount and shown as its own labeled line in the Net/Tax/Gross summary
 
 ### Acceptance Criteria (Tax & Currency additions)
 - [ ] Tax amounts are always computed server-side from `taxRateId`, never accepted as a raw number from the client

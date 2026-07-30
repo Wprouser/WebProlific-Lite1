@@ -11,7 +11,7 @@ import { GrnLineItemsEditor } from '@/components/grn/GrnLineItemsEditor';
 import { grnApi, type GrnLineInput } from '@/lib/grn-api';
 import { purchaseOrdersApi, type ApiPurchaseOrder } from '@/lib/purchase-orders-api';
 import { suppliersApi, type ApiSupplier } from '@/lib/suppliers-api';
-import { itemsApi, type ApiItem } from '@/lib/items-api';
+import { itemsApi, unitsApi, type ApiItem, type ApiUnitOfMeasure } from '@/lib/items-api';
 import { taxRatesApi, type ApiTaxRate } from '@/lib/tax-rates-api';
 import { previewDocumentTotals, previewLineTax } from '@/lib/document-tax-preview';
 import { getSession } from '@/lib/auth-store';
@@ -40,6 +40,7 @@ export function PoGrnForm() {
   const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
   const [po, setPo] = useState<ApiPurchaseOrder | null>(null);
   const [items, setItems] = useState<ApiItem[]>([]);
+  const [units, setUnits] = useState<ApiUnitOfMeasure[]>([]);
   const [taxRates, setTaxRates] = useState<ApiTaxRate[]>([]);
 
   const [isTaxInclusive, setIsTaxInclusive] = useState(false);
@@ -53,11 +54,13 @@ export function PoGrnForm() {
     setLoading(true);
     setError(null);
     try {
-      const [itemList, taxRateList] = await Promise.all([
+      const [itemList, unitList, taxRateList] = await Promise.all([
         itemsApi.list({ isActive: true }),
+        unitsApi.list({ outletId }),
         taxRatesApi.list({ isActive: true }),
       ]);
       setItems(itemList);
+      setUnits(unitList);
       setTaxRates(taxRateList);
 
       if (poId) {
@@ -257,6 +260,7 @@ export function PoGrnForm() {
 
         <GrnLineItemsEditor
           items={items}
+          units={units}
           taxRates={taxRates}
           lines={lines}
           onChange={setLines}

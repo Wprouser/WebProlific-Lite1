@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { PurchaseOrderLineItemsEditor } from './PurchaseOrderLineItemsEditor';
-import type { ApiItem } from '@/lib/items-api';
+import type { ApiItem, ApiUnitOfMeasure } from '@/lib/items-api';
 import type { ApiTaxRate } from '@/lib/tax-rates-api';
 import type { POLineInput } from '@/lib/purchase-orders-api';
 
@@ -14,7 +14,7 @@ const items: ApiItem[] = [
     categoryId: 'c1',
     sku: 'SKU-1',
     barcode: null,
-    unit: 'KG',
+    unitId: 'u1',
     minStock: '10',
     maxStock: '100',
     currentStock: '42.500',
@@ -27,6 +27,8 @@ const items: ApiItem[] = [
   },
 ];
 
+const units: ApiUnitOfMeasure[] = [{ id: 'u1', outletId: 'o1', name: 'Kilogram', abbreviation: 'KG', baseUnitId: null, conversionFactor: null, isActive: true }];
+
 const taxRates: ApiTaxRate[] = [
   { id: 't1', outletId: 'o1', name: 'GST 5%', ratePercent: '5', isCompound: false, isDefault: false, isActive: true, countryCode: null, components: [] },
 ];
@@ -35,6 +37,7 @@ function renderEditor(lines: POLineInput[], onChange = vi.fn()) {
   render(
     <PurchaseOrderLineItemsEditor
       items={items}
+      units={units}
       taxRates={taxRates}
       lines={lines}
       onChange={onChange}

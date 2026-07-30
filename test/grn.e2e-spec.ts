@@ -86,13 +86,14 @@ describe('GRN (FR-04) e2e', () => {
       data: { outletId: outlet.id, name: 'VAT 15%', ratePercent: '15.00', countryCode: 'SA' },
     });
     const category = await prisma.category.create({ data: { name: 'Dry Goods', outletId: outlet.id } });
+    const unit = await prisma.unitOfMeasure.create({ data: { name: 'Kilogram', abbreviation: 'kg', outletId: outlet.id } });
     const item = await prisma.item.create({
       data: {
         outletId: outlet.id,
         categoryId: category.id,
+        unitId: unit.id,
         name: 'Basmati Rice',
         sku: `RICE-BAS-${String(++skuCounter).padStart(3, '0')}`,
-        unit: 'KG',
         minStock: '10',
         maxStock: '1000',
         costPrice: '85.50',
@@ -492,13 +493,14 @@ describe('GRN (FR-04) e2e', () => {
       });
       const supplier = await prisma.supplier.create({ data: { outletId: outlet.id, name: 'No Email Supplier' } });
       const category = await prisma.category.create({ data: { name: 'Dry Goods', outletId: outlet.id } });
+      const unit = await prisma.unitOfMeasure.create({ data: { name: 'Kilogram', abbreviation: 'kg', outletId: outlet.id } });
       const item = await prisma.item.create({
         data: {
           outletId: outlet.id,
           categoryId: category.id,
+          unitId: unit.id,
           name: 'Basmati Rice',
           sku: 'RICE-NOEMAIL-001',
-          unit: 'KG',
           minStock: '10',
           maxStock: '1000',
           costPrice: '85.50',

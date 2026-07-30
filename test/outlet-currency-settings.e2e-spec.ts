@@ -132,13 +132,14 @@ describe('Outlet Currency Settings (FR-16) e2e', () => {
     void property;
 
     const category = await prisma.category.create({ data: { name: 'Produce', outletId: outlet.id } });
+    const unit = await prisma.unitOfMeasure.create({ data: { name: 'Kilogram', abbreviation: 'kg', outletId: outlet.id } });
     const item = await prisma.item.create({
       data: {
         outletId: outlet.id,
         categoryId: category.id,
+        unitId: unit.id,
         name: 'Tomatoes',
         sku: 'TOM-001',
-        unit: 'KG',
         minStock: '1',
         maxStock: '100',
         costPrice: '5.00',

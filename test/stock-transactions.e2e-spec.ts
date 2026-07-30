@@ -69,13 +69,14 @@ describe('Stock Transactions (FR-02) e2e', () => {
     const property = await prisma.property.create({ data: { chainId: chain.id, name: 'Jeddah Hotel', type: 'HOTEL' } });
     const outlet = await prisma.outlet.create({ data: { propertyId: property.id, chainId: chain.id, name: 'Main Restaurant', type: 'RESTAURANT' } });
     const cat = await prisma.category.create({ data: { name: 'Dry Goods', outletId: outlet.id } });
+    const unit = await prisma.unitOfMeasure.create({ data: { name: 'Kilogram', abbreviation: 'kg', outletId: outlet.id } });
     const item = await prisma.item.create({
       data: {
         outletId: outlet.id,
         categoryId: cat.id,
+        unitId: unit.id,
         name: 'Basmati Rice',
         sku: `RICE-BAS-${String(++skuCounter).padStart(3, '0')}`,
-        unit: 'KG',
         minStock: '10',
         maxStock: '1000',
         costPrice: '85.50',

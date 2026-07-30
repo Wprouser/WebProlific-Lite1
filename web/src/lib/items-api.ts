@@ -1,11 +1,22 @@
 import { apiClient } from './api-client';
 
-export type Unit = 'KG' | 'LITRE' | 'PIECE' | 'BOX' | 'GRAM' | 'ML';
-
 export interface ApiCategory {
   id: string;
   name: string;
   outletId: string;
+}
+
+export interface ApiUnitOfMeasure {
+  id: string;
+  outletId: string;
+  name: string;
+  abbreviation: string;
+  // null = this unit IS a base unit. Non-null = converts to that base unit
+  // at conversionFactor (see the Technical Spec's flat, two-level-only
+  // hierarchy rule — a derived unit can never point to another derived one).
+  baseUnitId: string | null;
+  conversionFactor: string | null;
+  isActive: boolean;
 }
 
 export interface ApiItem {
@@ -15,7 +26,7 @@ export interface ApiItem {
   categoryId: string;
   sku: string;
   barcode: string | null;
-  unit: Unit;
+  unitId: string;
   minStock: string;
   maxStock: string;
   currentStock: string;
@@ -57,7 +68,7 @@ export interface CreateItemInput {
   categoryId: string;
   sku: string;
   barcode: string | null;
-  unit: Unit;
+  unitId: string;
   minStock: string;
   maxStock: string;
   shelfLifeDays: number | null;
@@ -95,6 +106,44 @@ export const itemsApi = {
 export const categoriesApi = {
   list: () => apiClient.get<ApiCategory[]>('/items/categories'),
   create: (name: string, outletId: string) => apiClient.post<ApiCategory>('/items/categories', { name, outletId }),
+};
+
+export interface UnitFilters {
+  outletId?: string;
+  isActive?: boolean;
+}
+
+function buildUnitQuery(filters: UnitFilters): string {
+  const params = new URLSearchParams();
+  if (filters.outletId) params.set('outletId', filters.outletId);
+  if (filters.isActive !== undefined) params.set('isActive', String(filters.isActive));
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export interface CreateUnitOfMeasureInput {
+  name: string;
+  abbreviation: string;
+  outletId: string;
+  baseUnitId?: string;
+  conversionFactor?: string;
+}
+
+export type UpdateUnitOfMeasureInput = Partial<{
+  name: string;
+  abbreviation: string;
+  isActive: boolean;
+  // Explicit null clears an existing conversion relationship.
+  baseUnitId: string | null;
+  conversionFactor: string | null;
+}>;
+
+export const unitsApi = {
+  list: (filters: UnitFilters = {}) => apiClient.get<ApiUnitOfMeasure[]>(`/items/units${buildUnitQuery(filters)}`),
+  create: (input: CreateUnitOfMeasureInput) => apiClient.post<ApiUnitOfMeasure>('/items/units', input),
+  update: (id: string, input: UpdateUnitOfMeasureInput) =>
+    apiClient.patch<ApiUnitOfMeasure>(`/items/units/${id}`, input),
+  deactivate: (id: string) => apiClient.delete<ApiUnitOfMeasure>(`/items/units/${id}`),
 };
 
 export const itemImagesApi = {

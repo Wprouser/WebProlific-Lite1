@@ -3,7 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input, type InputProps } from '@/components/ui/Input';
 import { Select, type SelectProps } from '@/components/ui/Select';
-import type { ApiItem } from '@/lib/items-api';
+import type { ApiItem, ApiUnitOfMeasure } from '@/lib/items-api';
 import type { ApiTaxRate } from '@/lib/tax-rates-api';
 import type { POLineInput } from '@/lib/purchase-orders-api';
 import { previewLineTax } from '@/lib/document-tax-preview';
@@ -21,6 +21,7 @@ function CompactSelect(props: SelectProps) {
 
 export interface PurchaseOrderLineItemsEditorProps {
   items: ApiItem[];
+  units: ApiUnitOfMeasure[];
   taxRates: ApiTaxRate[];
   lines: POLineInput[];
   onChange: (lines: POLineInput[]) => void;
@@ -38,6 +39,7 @@ export interface PurchaseOrderLineItemsEditorProps {
  */
 export function PurchaseOrderLineItemsEditor({
   items,
+  units,
   taxRates,
   lines,
   onChange,
@@ -92,7 +94,10 @@ export function PurchaseOrderLineItemsEditor({
               </CompactSelect>
               {selectedItem && (
                 <span className="text-xs text-foreground-muted">
-                  {t('purchaseOrders.lines.currentStock', { stock: selectedItem.currentStock, unit: selectedItem.unit })}
+                  {t('purchaseOrders.lines.currentStock', {
+                    stock: selectedItem.currentStock,
+                    unit: units.find((u) => u.id === selectedItem.unitId)?.abbreviation ?? '',
+                  })}
                 </span>
               )}
             </div>

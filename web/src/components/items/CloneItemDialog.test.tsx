@@ -19,7 +19,7 @@ const item: ApiItem = {
   categoryId: 'c1',
   sku: 'RICE-BAS-001',
   barcode: null,
-  unit: 'KG',
+  unitId: 'u1',
   minStock: '10',
   maxStock: '100',
   currentStock: '25',

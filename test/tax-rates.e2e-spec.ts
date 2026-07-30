@@ -178,9 +178,10 @@ describe('Tax Rates (FR-04/FR-16 minimal slice) e2e', () => {
       .expect(200);
     const vatRate = taxRatesRes.body.find((r: { name: string }) => r.name === 'VAT 15%');
 
-    // Already auto-seeded by DefaultCategoriesListener via the same
-    // outlet.created event used above — don't create a duplicate.
+    // Already auto-seeded by DefaultCategoriesListener/DefaultUnitsListener
+    // via the same outlet.created event used above — don't create duplicates.
     const cat = await prisma.category.findFirstOrThrow({ where: { outletId } });
+    const unit = await prisma.unitOfMeasure.findFirstOrThrow({ where: { outletId, abbreviation: 'kg' } });
 
     const created = await api()
       .post('/api/v1/items')
@@ -190,7 +191,7 @@ describe('Tax Rates (FR-04/FR-16 minimal slice) e2e', () => {
         name: 'Basmati Rice',
         categoryId: cat.id,
         sku: 'RICE-BAS-001',
-        unit: 'KG',
+        unitId: unit.id,
         minStock: '10',
         maxStock: '100',
         costPrice: '85.50',
@@ -338,6 +339,7 @@ describe('Tax Rates (FR-04/FR-16 minimal slice) e2e', () => {
     const rates = await api().get('/api/v1/tax-rates').set('Authorization', `Bearer ${token}`).expect(200);
     const vat = rates.body.find((r: { name: string }) => r.name === 'VAT 15%');
     const cat = await prisma.category.findFirstOrThrow({ where: { outletId } });
+    const unit = await prisma.unitOfMeasure.findFirstOrThrow({ where: { outletId, abbreviation: 'kg' } });
 
     const item = await api()
       .post('/api/v1/items')
@@ -347,7 +349,7 @@ describe('Tax Rates (FR-04/FR-16 minimal slice) e2e', () => {
         name: 'Basmati Rice',
         categoryId: cat.id,
         sku: 'RICE-BAS-001',
-        unit: 'KG',
+        unitId: unit.id,
         minStock: '10',
         maxStock: '100',
         costPrice: '85.50',

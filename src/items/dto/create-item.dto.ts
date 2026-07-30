@@ -1,5 +1,4 @@
 import {
-  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -9,7 +8,6 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { UNITS, Unit } from '../constants/enums';
 
 export class OpeningStockDto {
   @Matches(/^\d+(\.\d{1,3})?$/, { message: 'quantity must be a decimal with up to 3 places' })
@@ -47,8 +45,11 @@ export class CreateItemDto {
   @IsString()
   barcode?: string;
 
-  @IsIn(UNITS)
-  unit!: Unit;
+  // A real FK to UnitOfMeasure (see that model's own note on why this
+  // replaced a hardcoded enum) — SQL Server enforces existence, same as
+  // categoryId above, so no extra @IsIn-style validation here.
+  @IsString()
+  unitId!: string;
 
   @Matches(/^\d+(\.\d{1,3})?$/, { message: 'minStock must be a decimal with up to 3 places' })
   minStock!: string;

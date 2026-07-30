@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ItemFormModal } from './ItemFormModal';
-import { itemsApi, itemImagesApi, type ApiCategory, type ApiItem } from '@/lib/items-api';
+import { itemsApi, itemImagesApi, type ApiCategory, type ApiItem, type ApiUnitOfMeasure } from '@/lib/items-api';
 import type { ApiTaxRate } from '@/lib/tax-rates-api';
 
 vi.mock('@/lib/items-api', async () => {
@@ -19,6 +19,7 @@ vi.mock('@/lib/items-api', async () => {
 });
 
 const categories: ApiCategory[] = [{ id: 'c1', name: 'Dry Goods', outletId: 'o1' }];
+const units: ApiUnitOfMeasure[] = [{ id: 'u1', outletId: 'o1', name: 'Kilogram', abbreviation: 'kg', baseUnitId: null, conversionFactor: null, isActive: true }];
 const taxRates: ApiTaxRate[] = [
   { id: 'tax-vat', outletId: 'o1', name: 'VAT 15%', ratePercent: '15.00', isCompound: false, isDefault: false, isActive: true, countryCode: 'SA', components: [] },
   { id: 'tax-zero', outletId: 'o1', name: 'Zero-Rated', ratePercent: '0.00', isCompound: false, isDefault: false, isActive: true, countryCode: null, components: [] },
@@ -32,7 +33,7 @@ const existingItem: ApiItem = {
   categoryId: 'c1',
   sku: 'RICE-BAS-001',
   barcode: null,
-  unit: 'KG',
+  unitId: 'u1',
   minStock: '10',
   maxStock: '100',
   currentStock: '0',
@@ -70,6 +71,7 @@ describe('ItemFormModal', () => {
           onOpenChange={vi.fn()}
           item={null}
           categories={categories}
+          units={units}
           taxRates={taxRates}
           outletId="o1"
           onSaved={vi.fn()}
@@ -88,6 +90,7 @@ describe('ItemFormModal', () => {
           onOpenChange={vi.fn()}
           item={null}
           categories={categories}
+          units={units}
           taxRates={taxRates}
           outletId="o1"
           onSaved={vi.fn()}
@@ -108,6 +111,7 @@ describe('ItemFormModal', () => {
           onOpenChange={vi.fn()}
           item={null}
           categories={categories}
+          units={units}
           taxRates={taxRates}
           outletId="o1"
           onSaved={onSaved}
@@ -140,6 +144,7 @@ describe('ItemFormModal', () => {
           onOpenChange={vi.fn()}
           item={null}
           categories={categories}
+          units={units}
           taxRates={taxRates}
           outletId="o1"
           onSaved={onSaved}
@@ -168,6 +173,7 @@ describe('ItemFormModal', () => {
           onOpenChange={vi.fn()}
           item={null}
           categories={categories}
+          units={units}
           taxRates={taxRates}
           outletId="o1"
           onSaved={onSaved}
@@ -195,6 +201,7 @@ describe('ItemFormModal', () => {
           onOpenChange={vi.fn()}
           item={existingItem}
           categories={categories}
+          units={units}
           taxRates={taxRates}
           outletId="o1"
           onSaved={vi.fn()}
@@ -212,6 +219,7 @@ describe('ItemFormModal', () => {
           onOpenChange={vi.fn()}
           item={{ ...existingItem, defaultTaxRateId: 'tax-zero' }}
           categories={categories}
+          units={units}
           taxRates={taxRates}
           outletId="o1"
           onSaved={vi.fn()}
@@ -228,6 +236,7 @@ describe('ItemFormModal', () => {
           onOpenChange={vi.fn()}
           item={{ ...existingItem, defaultTaxRateId: 'tax-old' }}
           categories={categories}
+          units={units}
           taxRates={taxRates}
           outletId="o1"
           onSaved={vi.fn()}
@@ -246,6 +255,7 @@ describe('ItemFormModal', () => {
           onOpenChange={vi.fn()}
           item={{ ...existingItem, defaultTaxRateId: 'tax-vat' }}
           categories={categories}
+          units={units}
           taxRates={taxRates}
           outletId="o1"
           onSaved={vi.fn()}
@@ -265,6 +275,7 @@ describe('ItemFormModal', () => {
           onOpenChange={vi.fn()}
           item={existingItem}
           categories={categories}
+          units={units}
           taxRates={taxRates}
           outletId="o1"
           onSaved={onSaved}

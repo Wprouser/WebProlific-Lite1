@@ -11,6 +11,7 @@ import { TaxRateRepository } from '../../tax-rates/repositories/tax-rate.reposit
 import { CurrenciesService } from '../../currencies/services/currencies.service';
 import { InvoiceScanRepository } from '../../invoice-scans/repositories/invoice-scan.repository';
 import { ItemRepository } from '../../items/repositories/item.repository';
+import { UnitOfMeasureRepository } from '../../items/repositories/unit-of-measure.repository';
 import { EmailProvider } from '../../email/providers/email.provider';
 import { RequestWithAccess } from '../../tenancy/types/request-with-access';
 
@@ -179,7 +180,10 @@ describe('GrnService', () => {
       findById: jest.fn().mockResolvedValue(null),
     };
     const itemRepository: Partial<ItemRepository> = {
-      findById: jest.fn().mockResolvedValue({ id: 'i1', name: 'Basmati Rice', unit: 'KG' }),
+      findById: jest.fn().mockResolvedValue({ id: 'i1', name: 'Basmati Rice', unitId: 'u1' }),
+    };
+    const unitRepository: Partial<UnitOfMeasureRepository> = {
+      findById: jest.fn().mockResolvedValue({ id: 'u1', name: 'Kilogram', abbreviation: 'kg' }),
     };
     const emailProvider: Partial<EmailProvider> = {
       send: jest.fn().mockResolvedValue(undefined),
@@ -193,6 +197,7 @@ describe('GrnService', () => {
       taxRateRepository as TaxRateRepository,
       invoiceScanRepository as InvoiceScanRepository,
       itemRepository as ItemRepository,
+      unitRepository as UnitOfMeasureRepository,
       emailProvider as EmailProvider,
       currenciesService as CurrenciesService,
     );

@@ -306,8 +306,6 @@ model TransactionLog {
 }
 
 // FR-01: Item Master Management
-// Unit is a String column, not a Prisma `enum` block — see the header note
-// above; enforced via src/items/constants/enums.ts.
 model Item {
   id                String             @id @default(uuid())
   outletId          String
@@ -322,7 +320,12 @@ model Item {
   // second item with no barcode at all. Uniqueness is still enforced when
   // a barcode IS provided, via ItemsService's findByBarcode check.
   barcode           String?
-  unit              String // Unit: KG | LITRE | PIECE | BOX | GRAM | ML
+  // No longer a hardcoded 6-value enum (KG/LITRE/PIECE/BOX/GRAM/ML) — that
+  // couldn't represent real F&B units like "dozen," "bunch," "tray," or
+  // "sack," and a hardcoded enum can't be user-extended. Real FK to a
+  // per-outlet UnitOfMeasure master table instead, same pattern as Category.
+  unitId            String
+  unit              UnitOfMeasure      @relation(fields: [unitId], references: [id])
   minStock          Decimal            @db.Decimal(10, 3)
   maxStock          Decimal            @db.Decimal(10, 3)
   // Denormalized, updated only by FR-02's Stock Transaction service — never
@@ -353,8 +356,15 @@ model Item {
   @@index([outletId, isActive])
   @@index([categoryId])
   @@index([barcode])
+  @@index([unitId])
 }
 
+// KNOWN GAP (logged, not fixed here — deliberately deferred, see chat
+// history): the spec describes Category with `isActive`/soft-deactivation,
+// same as every other master-data table, but this model was never actually
+// built with it — create + list only, no edit/deactivate endpoint exists.
+// Follow-up task, unrelated to the UnitOfMeasure work below; needs its own
+// focused pass once flagged back to the user.
 model Category {
   id       String @id @default(uuid())
   name     String
@@ -362,6 +372,41 @@ model Category {
   items    Item[]
 
   @@unique([name, outletId])
+}
+
+// FR-01: per-outlet master table replacing the old hardcoded Unit enum —
+// same pattern as Category (per-outlet, seeded on outlet.created via
+// DefaultUnitsListener), but with real soft-deactivation (Add/Edit/
+// Deactivate on its own management screen), since a unit may already be
+// referenced by historical Items and must never be hard-deleted.
+//
+// Conversion: a flat, two-level hierarchy only — a unit is either a base
+// unit (baseUnitId: null) or a derived unit converting to exactly one base
+// at conversionFactor. baseUnitId must never point to another derived unit
+// (enforced in UnitsService, not the DB) — see that service's validation
+// for the full rule set. onDelete/onUpdate: NoAction is required here, not
+// just stylistic — SQL Server rejects a self-referencing FK with any
+// cascade action ("may cause cycles or multiple cascade paths").
+model UnitOfMeasure {
+  id               String          @id @default(uuid())
+  outletId         String
+  name             String // e.g. "Kilogram", "Dozen", "Bunch", "Tray", "Sack"
+  abbreviation     String // e.g. "kg", "dz", "bunch" — shown in compact UI contexts
+  baseUnitId       String?
+  baseUnit         UnitOfMeasure?  @relation("UnitConversion", fields: [baseUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  derivedUnits     UnitOfMeasure[] @relation("UnitConversion")
+  // Required (and > 0) iff baseUnitId is set — how many base-unit quantities
+  // equal 1 of this unit (e.g. Litre.conversionFactor = 1000, base =
+  // Millilitre, meaning 1 L = 1000 mL). Null when baseUnitId is null.
+  conversionFactor Decimal?        @db.Decimal(12, 6)
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  items            Item[]
+
+  @@unique([name, outletId])
+  @@index([outletId, isActive])
+  @@index([baseUnitId])
 }
 
 // Minimal slice of FR-04/FR-16's TaxRate — just enough to seed starter rates

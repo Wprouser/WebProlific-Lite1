@@ -19,10 +19,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
 
+  // A 401 only means "session expired" when there was a session to expire —
+  // otherwise this is a login/2fa-verify attempt with bad credentials, and
+  // the caller (e.g. Login.tsx) needs to catch the ApiError itself and show
+  // an inline message, not have the page yanked back to /login (which was
+  // wiping that error before it could render, since /login was already the
+  // current page in that case).
   if (response.status === 401) {
-    clearSession();
-    window.location.assign('/login');
-    throw new ApiError(401, 'Session expired');
+    if (session) {
+      clearSession();
+      window.location.assign('/login');
+      throw new ApiError(401, 'Session expired');
+    }
+    const body = await response.json().catch(() => null);
+    throw new ApiError(401, body?.message ?? 'Unauthorized');
   }
 
   if (!response.ok) {

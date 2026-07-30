@@ -176,6 +176,7 @@
     "subtitle": "Manage your outlet's item master and categories",
     "addItem": "Add item",
     "manageCategories": "Manage categories",
+    "manageUnits": "Manage units",
     "manageTaxRates": "Tax rates",
     "searchPlaceholder": "Search by name or SKU…",
     "loadError": "Couldn't load items",
@@ -235,6 +236,7 @@
       "defaultTaxRateId": "Default tax rate",
       "defaultTaxRateIdPlaceholder": "Optional",
       "defaultTaxRateIdInactiveOption": "{{name}} (Inactive)",
+      "inactiveOption": "{{name}} (Inactive)",
       "openingStockTitle": "Opening stock",
       "openingStockHint": "Captured once at creation — not editable afterward here.",
       "openingQuantity": "Quantity",
@@ -252,13 +254,21 @@
       "add": "Add",
       "empty": "No categories yet"
     },
-    "units": {
-      "KG": "Kilogram (KG)",
-      "LITRE": "Litre (L)",
-      "PIECE": "Piece",
-      "BOX": "Box",
-      "GRAM": "Gram (g)",
-      "ML": "Millilitre (ml)"
+    "unitManager": {
+      "title": "Manage units",
+      "description": "Units of measure used on the Item form — deactivating one never affects items already using it.",
+      "namePlaceholder": "New unit name (e.g. Bunch)",
+      "abbreviationPlaceholder": "Abbr. (e.g. bunch)",
+      "baseUnitPlaceholder": "Base unit (optional)",
+      "conversionFactorPlaceholder": "Conversion factor",
+      "baseUnitLabel": "1 {{thisAbbr}} = {{factor}} {{name}}",
+      "add": "Add",
+      "save": "Save",
+      "edit": "Edit",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "empty": "No units yet",
+      "saveError": "Couldn't save. Please try again."
     },
     "detail": {
       "back": "Back to items",

@@ -11,7 +11,7 @@ import { GrnLineItemsEditor } from '@/components/grn/GrnLineItemsEditor';
 import { invoiceScansApi, type ApiInvoiceScan } from '@/lib/invoice-scans-api';
 import { grnApi, type GrnLineInput } from '@/lib/grn-api';
 import { suppliersApi, type ApiSupplier } from '@/lib/suppliers-api';
-import { itemsApi, type ApiItem } from '@/lib/items-api';
+import { itemsApi, unitsApi, type ApiItem, type ApiUnitOfMeasure } from '@/lib/items-api';
 import { taxRatesApi, type ApiTaxRate } from '@/lib/tax-rates-api';
 import { previewDocumentTotals, previewLineTax } from '@/lib/document-tax-preview';
 import { getSession } from '@/lib/auth-store';
@@ -36,6 +36,7 @@ export function ScanInvoiceGrnForm() {
 
   const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
   const [items, setItems] = useState<ApiItem[]>([]);
+  const [units, setUnits] = useState<ApiUnitOfMeasure[]>([]);
   const [taxRates, setTaxRates] = useState<ApiTaxRate[]>([]);
   const [referenceDataLoaded, setReferenceDataLoaded] = useState(false);
 
@@ -56,11 +57,13 @@ export function ScanInvoiceGrnForm() {
     Promise.all([
       suppliersApi.list({ outletId, isActive: true }),
       itemsApi.list({ isActive: true }),
+      unitsApi.list({ outletId }),
       taxRatesApi.list({ isActive: true }),
     ])
-      .then(([supplierList, itemList, taxRateList]) => {
+      .then(([supplierList, itemList, unitList, taxRateList]) => {
         setSuppliers(supplierList);
         setItems(itemList);
+        setUnits(unitList);
         setTaxRates(taxRateList);
       })
       .finally(() => setReferenceDataLoaded(true));
@@ -242,6 +245,7 @@ export function ScanInvoiceGrnForm() {
 
           <GrnLineItemsEditor
             items={items}
+            units={units}
             taxRates={taxRates}
             lines={lines}
             onChange={setLines}

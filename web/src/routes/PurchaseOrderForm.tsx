@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { PurchaseOrderLineItemsEditor } from '@/components/purchase-orders/PurchaseOrderLineItemsEditor';
 import { purchaseOrdersApi, type POLineInput } from '@/lib/purchase-orders-api';
 import { suppliersApi, type ApiSupplier } from '@/lib/suppliers-api';
-import { itemsApi, type ApiItem } from '@/lib/items-api';
+import { itemsApi, unitsApi, type ApiItem, type ApiUnitOfMeasure } from '@/lib/items-api';
 import { taxRatesApi, type ApiTaxRate } from '@/lib/tax-rates-api';
 import { currenciesApi, type ApiCurrency } from '@/lib/currencies-api';
 import { outletsApi } from '@/lib/outlets-api';
@@ -53,6 +53,7 @@ export function PurchaseOrderForm() {
 
   const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
   const [items, setItems] = useState<ApiItem[]>([]);
+  const [units, setUnits] = useState<ApiUnitOfMeasure[]>([]);
   const [taxRates, setTaxRates] = useState<ApiTaxRate[]>([]);
   const [currencies, setCurrencies] = useState<ApiCurrency[]>([]);
   const [outletBaseCurrency, setOutletBaseCurrency] = useState('SAR');
@@ -71,15 +72,17 @@ export function PurchaseOrderForm() {
     setLoading(true);
     setError(null);
     try {
-      const [supplierList, itemList, taxRateList, currencyList, settings] = await Promise.all([
+      const [supplierList, itemList, unitList, taxRateList, currencyList, settings] = await Promise.all([
         suppliersApi.list({ outletId, isActive: true }),
         itemsApi.list({ isActive: true }),
+        unitsApi.list({ outletId }),
         taxRatesApi.list({ isActive: true }),
         currenciesApi.list(),
         outletsApi.getCurrencySettings(outletId),
       ]);
       setSuppliers(supplierList);
       setItems(itemList);
+      setUnits(unitList);
       setTaxRates(taxRateList);
       setCurrencies(currencyList);
       setOutletBaseCurrency(settings.baseCurrency);
@@ -249,6 +252,7 @@ export function PurchaseOrderForm() {
 
           <PurchaseOrderLineItemsEditor
             items={items}
+            units={units}
             taxRates={taxRates}
             lines={lines}
             onChange={setLines}

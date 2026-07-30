@@ -23,8 +23,9 @@ import { ExchangeRateRepository } from '../../exchange-rates/repositories/exchan
 import { TAX_RATE_REPOSITORY } from '../../tax-rates/repositories/tokens';
 import { TaxRateRepository } from '../../tax-rates/repositories/tax-rate.repository';
 import { TaxRate } from '../../tax-rates/domain/tax-rate.entity';
-import { ITEM_REPOSITORY } from '../../items/repositories/tokens';
+import { ITEM_REPOSITORY, UNIT_OF_MEASURE_REPOSITORY } from '../../items/repositories/tokens';
 import { ItemRepository } from '../../items/repositories/item.repository';
+import { UnitOfMeasureRepository } from '../../items/repositories/unit-of-measure.repository';
 import { EMAIL_PROVIDER } from '../../email/providers/tokens';
 import { EmailProvider } from '../../email/providers/email.provider';
 import { generateDocumentPdf } from '../../documents/lib/generate-document-pdf';
@@ -39,6 +40,7 @@ export class PurchaseOrdersService {
     @Inject(EXCHANGE_RATE_REPOSITORY) private readonly exchangeRateRepository: ExchangeRateRepository,
     @Inject(TAX_RATE_REPOSITORY) private readonly taxRateRepository: TaxRateRepository,
     @Inject(ITEM_REPOSITORY) private readonly itemRepository: ItemRepository,
+    @Inject(UNIT_OF_MEASURE_REPOSITORY) private readonly unitRepository: UnitOfMeasureRepository,
     @Inject(EMAIL_PROVIDER) private readonly emailProvider: EmailProvider,
     private readonly currenciesService: CurrenciesService,
   ) {}
@@ -228,6 +230,7 @@ export class PurchaseOrdersService {
     const outlet = await this.getOutletOrThrow(po.outletId);
     const supplier = await this.supplierRepository.findById(po.supplierId);
     const items = await Promise.all(po.lines.map((line) => this.itemRepository.findById(line.itemId)));
+    const units = await Promise.all(items.map((item) => (item ? this.unitRepository.findById(item.unitId) : null)));
 
     return generateDocumentPdf({
       documentTypeLabel: 'Purchase Order',
@@ -242,7 +245,7 @@ export class PurchaseOrdersService {
       lines: po.lines.map((line, index) => ({
         itemName: items[index]?.name ?? line.itemId,
         quantity: line.orderedQty,
-        unit: items[index]?.unit,
+        unit: units[index]?.abbreviation,
         unitPrice: line.expectedPrice,
         taxComponents: line.taxComponents,
         lineTaxAmount: line.lineTaxAmount,

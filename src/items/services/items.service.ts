@@ -40,7 +40,7 @@ export class ItemsService {
       name: `${source.name} (Copy)`,
       categoryId: source.categoryId,
       sku,
-      unit: source.unit,
+      unitId: source.unitId,
       minStock: source.minStock,
       maxStock: source.maxStock,
       shelfLifeDays: source.shelfLifeDays ?? undefined,
