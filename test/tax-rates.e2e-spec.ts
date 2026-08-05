@@ -147,7 +147,7 @@ describe('Tax Rates (FR-04/FR-16 minimal slice) e2e', () => {
   it('GET /tax-rates returns only the seeded rates for the caller\'s accessible outlet', async () => {
     const { property } = await chainWithProperty();
     const { token } = await actor('mgr2@example.com', 'PROPERTY', property.id, 'PROPERTY_MANAGER');
-    const outlet = await api()
+    await api()
       .post(`/api/v1/properties/${property.id}/outlets`)
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Main Restaurant', type: 'RESTAURANT' })
@@ -263,7 +263,7 @@ describe('Tax Rates (FR-04/FR-16 minimal slice) e2e', () => {
   it('AC: PATCH /tax-rates/:id edits name/percentage without affecting anything else', async () => {
     const { property } = await chainWithProperty();
     const { token } = await actor('mgr6@example.com', 'PROPERTY', property.id, 'PROPERTY_MANAGER');
-    const outletRes = await api()
+    await api()
       .post(`/api/v1/properties/${property.id}/outlets`)
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Main Restaurant', type: 'RESTAURANT' })
@@ -284,7 +284,7 @@ describe('Tax Rates (FR-04/FR-16 minimal slice) e2e', () => {
   it('AC: DELETE /tax-rates/:id soft-deactivates (isActive: false), never hard-deletes', async () => {
     const { property } = await chainWithProperty();
     const { token } = await actor('mgr7@example.com', 'PROPERTY', property.id, 'PROPERTY_MANAGER');
-    const outletRes = await api()
+    await api()
       .post(`/api/v1/properties/${property.id}/outlets`)
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Main Restaurant', type: 'RESTAURANT' })
@@ -307,7 +307,7 @@ describe('Tax Rates (FR-04/FR-16 minimal slice) e2e', () => {
   it('AC: GET /tax-rates without isActive returns both; isActive=true returns only active rows', async () => {
     const { property } = await chainWithProperty();
     const { token } = await actor('mgr8@example.com', 'PROPERTY', property.id, 'PROPERTY_MANAGER');
-    const outletRes = await api()
+    await api()
       .post(`/api/v1/properties/${property.id}/outlets`)
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Main Restaurant', type: 'RESTAURANT' })
@@ -460,7 +460,7 @@ describe('Tax Rates (FR-04/FR-16 minimal slice) e2e', () => {
   });
 
   it('AC: preview computes a simple rate as a single lump figure with no components', async () => {
-    const { token, outletId } = await setupOutlet('preview2@example.com');
+    const { token } = await setupOutlet('preview2@example.com');
     const rates = await api().get('/api/v1/tax-rates').set('Authorization', `Bearer ${token}`).expect(200);
     const vat = rates.body.find((r: { name: string }) => r.name === 'VAT 15%');
 

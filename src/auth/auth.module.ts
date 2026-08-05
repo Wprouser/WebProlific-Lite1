@@ -11,7 +11,16 @@ import { TwoFactorService } from './services/two-factor.service';
 import { TokenService } from './services/token.service';
 import { TotpService } from './services/totp.service';
 import { PasswordService } from './services/password.service';
-import { ConsoleOtpDispatcherService, OTP_DISPATCHER } from './services/otp-dispatcher.service';
+import {
+  ConsoleOtpDispatcherService,
+  EmailOtpDispatcher,
+  OTP_DISPATCHER,
+  OtpDispatcher,
+} from './services/otp-dispatcher.service';
+import { EmailModule } from '../email/email.module';
+import { EMAIL_PROVIDER } from '../email/providers/tokens';
+import { EmailProvider } from '../email/providers/email.provider';
+import { DevEmailProvider } from '../email/providers/dev-email.provider';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PerUserThrottlerGuard } from './guards/per-user-throttler.guard';
 import {
@@ -37,6 +46,7 @@ import { PrismaPasswordResetTokenRepository } from './repositories/prisma/prisma
     TenancyModule,
     RbacModule,
     ActivityLogModule,
+    EmailModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -55,7 +65,18 @@ import { PrismaPasswordResetTokenRepository } from './repositories/prisma/prisma
     PasswordService,
     JwtAuthGuard,
     PerUserThrottlerGuard,
-    { provide: OTP_DISPATCHER, useClass: ConsoleOtpDispatcherService },
+    {
+      // Follows whatever EmailModule resolved: with a real provider
+      // configured, codes are emailed; with the dev stub, they keep going to
+      // the console (where the seed scripts tell you to look for them) rather
+      // than being handed to a sender that only logs anyway.
+      provide: OTP_DISPATCHER,
+      inject: [EMAIL_PROVIDER, ConfigService],
+      useFactory: (emailProvider: EmailProvider, config: ConfigService): OtpDispatcher =>
+        emailProvider instanceof DevEmailProvider
+          ? new ConsoleOtpDispatcherService()
+          : new EmailOtpDispatcher(emailProvider, config),
+    },
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
     { provide: TWO_FACTOR_AUTH_REPOSITORY, useClass: PrismaTwoFactorAuthRepository },
     { provide: TWO_FACTOR_BACKUP_CODE_REPOSITORY, useClass: PrismaTwoFactorBackupCodeRepository },

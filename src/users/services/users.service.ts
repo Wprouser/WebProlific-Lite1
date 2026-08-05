@@ -30,7 +30,6 @@ import { ScopeType } from '../../tenancy/constants/enums';
 import { User } from '../../auth/domain/user.entity';
 import { LoginResponse } from '../../auth/services/auth-responses';
 import { InviteUserDto } from '../dto/invite-user.dto';
-import { GrantDto } from '../dto/grant.dto';
 import { AcceptInviteDto } from '../dto/accept-invite.dto';
 import { UpdateAccessDto } from '../dto/update-access.dto';
 import { AdminReauthDto } from '../dto/admin-reauth.dto';
@@ -237,7 +236,7 @@ export class UsersService {
       tokenHash: this.tokenService.hashOpaqueToken(raw),
       expiresAt: this.tokenService.inviteTokenExpiry(),
     });
-    await this.otpDispatcher.dispatch(user.email, 'EMAIL', raw);
+    await this.otpDispatcher.dispatch({ destination: user.email, method: 'EMAIL', code: raw, purpose: 'INVITE' });
   }
 
   private toSummary(user: User) {

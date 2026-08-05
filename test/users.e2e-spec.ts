@@ -6,11 +6,11 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { PasswordService } from '../src/auth/services/password.service';
 import { TokenService } from '../src/auth/services/token.service';
-import { OTP_DISPATCHER, OtpDispatcher } from '../src/auth/services/otp-dispatcher.service';
+import { OTP_DISPATCHER, DispatchInput, OtpDispatcher } from '../src/auth/services/otp-dispatcher.service';
 
 class CapturingOtpDispatcher implements OtpDispatcher {
   lastCodeByDestination = new Map<string, string>();
-  async dispatch(destination: string, _method: 'SMS' | 'EMAIL', code: string): Promise<void> {
+  async dispatch({ destination, code }: DispatchInput): Promise<void> {
     this.lastCodeByDestination.set(destination, code);
   }
 }

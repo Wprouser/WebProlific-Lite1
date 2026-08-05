@@ -12,7 +12,7 @@ describe('LocalDiskStorageRepository', () => {
     let RepositoryClass!: typeof LocalDiskStorageRepositoryType;
     jest.isolateModules(() => {
       jest.spyOn(process, 'cwd').mockReturnValue(cwd);
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       RepositoryClass = require('./local-disk-storage.repository').LocalDiskStorageRepository;
     });
     return new RepositoryClass();

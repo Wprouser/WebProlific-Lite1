@@ -2,18 +2,6 @@ import { Prisma } from '@prisma/client';
 import { PrismaGrnRepository } from './prisma-grn.repository';
 import { PurchaseOrderRepository } from '../../../purchase-orders/repositories/purchase-order.repository';
 
-function fixtureLineTaxComponentRow(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'gc1',
-    grnLineId: 'gl1',
-    componentName: 'CGST',
-    componentRate: { toFixed: () => '9.00' },
-    componentAmount: { toFixed: () => '9.00' },
-    sortOrder: 0,
-    ...overrides,
-  };
-}
-
 function fixtureLineRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'gl1',

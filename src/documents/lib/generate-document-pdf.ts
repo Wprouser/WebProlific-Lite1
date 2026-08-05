@@ -64,8 +64,8 @@ export function generateDocumentPdf(input: DocumentPdfInput): Promise<Buffer> {
 
     drawHeader(doc, input);
     drawMetaBlock(doc, input);
-    let y = drawLineItemsTable(doc, input);
-    y = drawTotals(doc, input, y);
+    const y = drawLineItemsTable(doc, input);
+    drawTotals(doc, input, y);
     drawFooter(doc);
 
     doc.end();

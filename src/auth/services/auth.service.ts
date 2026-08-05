@@ -168,7 +168,7 @@ export class AuthService {
     if (!destination) throw new BadRequestException('No destination on file for this method');
 
     const otp = generateNumericOtp();
-    await this.otpDispatcher.dispatch(destination, challenge.method, otp);
+    await this.otpDispatcher.dispatch({ destination, method: challenge.method, code: otp, purpose: 'TWO_FACTOR' });
     await this.twoFactorChallengeRepository.updateCode(
       challenge.id,
       this.tokenService.hashOpaqueToken(otp),
@@ -262,7 +262,7 @@ export class AuthService {
       tokenHash: this.tokenService.hashOpaqueToken(raw),
       expiresAt: this.tokenService.passwordResetExpiry(),
     });
-    await this.otpDispatcher.dispatch(user.email, 'EMAIL', raw);
+    await this.otpDispatcher.dispatch({ destination: user.email, method: 'EMAIL', code: raw, purpose: 'PASSWORD_RESET' });
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<{ success: true }> {
@@ -335,7 +335,7 @@ export class AuthService {
       const otp = generateNumericOtp();
       code = this.tokenService.hashOpaqueToken(otp);
       maskedDestination = maskDestination(destination, method);
-      await this.otpDispatcher.dispatch(destination, method, otp);
+      await this.otpDispatcher.dispatch({ destination, method, code: otp, purpose: 'TWO_FACTOR' });
     }
 
     const challenge = await this.twoFactorChallengeRepository.create({

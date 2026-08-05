@@ -20,7 +20,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:migrate:test": "dotenv -e .env.test -- prisma migrate deploy"
+    "prisma:migrate:test": "dotenv -e .env.test -- prisma migrate deploy",
+    "seed:dev-owner": "dotenv -e .env -- ts-node -T prisma/seed-dev-owner.ts",
+    "seed:dev-2fa": "dotenv -e .env -- ts-node -T prisma/seed-dev-2fa-user.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

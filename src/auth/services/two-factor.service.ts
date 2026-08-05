@@ -89,7 +89,7 @@ export class TwoFactorService {
       throw new BadRequestException(`No ${dto.method === 'SMS' ? 'phone number' : 'email'} on file`);
     }
     const otp = generateNumericOtp();
-    await this.otpDispatcher.dispatch(destination, dto.method, otp);
+    await this.otpDispatcher.dispatch({ destination, method: dto.method, code: otp, purpose: 'TWO_FACTOR' });
     const challenge = await this.twoFactorChallengeRepository.create({
       userId,
       code: this.tokenService.hashOpaqueToken(otp),

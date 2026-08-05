@@ -48,8 +48,8 @@
     "grn-variance": "GRN Variance Awaiting Sign-off",
     "unacknowledged": "Unacknowledged Alerts",
     "none": "No alerts right now",
-    "needAttention_one": "{{count}} alert needs attention",
-    "needAttention_other": "{{count}} alerts need attention"
+    "needAttention_one": "{{min}} alert needs attention",
+    "needAttention_other": "{{min}} alerts need attention"
   },
   "login": {
     "title": "Sign in",
@@ -73,7 +73,45 @@
       "verify": "Verify",
       "verifying": "Verifying…",
       "back": "Back",
-      "invalidCode": "Incorrect or expired code."
+      "invalidCode": "Incorrect or expired code.",
+      "backupCode": "Backup code",
+      "backupCodePlaceholder": "10-character code",
+      "invalidBackupCode": "Incorrect or already-used backup code.",
+      "useBackupCode": "Use a backup code instead",
+      "useCode": "Use a verification code instead",
+      "trustDevice": "Trust this device for 30 days",
+      "trustDeviceHint": "You won't be asked for a code on this device until it expires.",
+      "resend": "Resend code",
+      "resendIn": "Resend code in {{seconds}}s",
+      "resent": "A new code has been sent."
+    },
+    "tooManyAttempts": "Too many attempts. Please wait a moment and try again.",
+    "sessionExpired": "Your session expired. Please sign in again.",
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "Enter your email and we'll send you a reset link.",
+      "sentSubtitle": "Check your inbox.",
+      "sent": "If an account exists for {{email}}, a reset link is on its way.",
+      "submit": "Send reset link",
+      "sending": "Sending…",
+      "backToLogin": "Back to sign in"
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "subtitle": "Enter a new password for your account.",
+      "doneSubtitle": "Your password has been changed.",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "rule": "At least {{min}} characters.",
+      "tooShort": "Password must be at least {{min}} characters.",
+      "mismatch": "Passwords don't match.",
+      "invalidToken": "This reset link is invalid or has expired. Request a new one.",
+      "missingToken": "This reset link is missing its token. Request a new one.",
+      "requestNew": "Request a new link",
+      "submit": "Set new password",
+      "submitting": "Saving…",
+      "done": "Password changed. You can now sign in with your new password.",
+      "goToLogin": "Go to sign in"
     }
   },
   "contextSwitcher": {
@@ -300,8 +338,8 @@
         "unit": "Unit",
         "reorderPoint": "Reorder point (min / max)",
         "shelfLifeDays": "Shelf life",
-        "shelfLifeDaysValue_one": "{{count}} day",
-        "shelfLifeDaysValue_other": "{{count}} days",
+        "shelfLifeDaysValue_one": "{{min}} day",
+        "shelfLifeDaysValue_other": "{{min}} days",
         "storageLocation": "Storage location",
         "costPrice": "Cost price",
         "defaultSupplier": "Default supplier",

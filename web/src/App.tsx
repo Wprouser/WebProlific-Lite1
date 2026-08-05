@@ -6,6 +6,8 @@ import { Dashboard } from '@/routes/Dashboard';
 import { Styleguide } from '@/routes/Styleguide';
 import { AlertList } from '@/routes/AlertList';
 import { Login } from '@/routes/Login';
+import { ForgotPassword } from '@/routes/ForgotPassword';
+import { ResetPassword } from '@/routes/ResetPassword';
 import { Items } from '@/routes/Items';
 import { ItemDetail } from '@/routes/ItemDetail';
 import { StockTransactions } from '@/routes/StockTransactions';
@@ -46,6 +48,12 @@ export function App() {
               </RedirectIfAuthed>
             }
           />
+
+          {/* Also pre-auth. Not wrapped in RedirectIfAuthed: a signed-in user
+              following a reset link from their inbox should still be able to
+              complete the reset rather than be bounced to the dashboard. */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           <Route
             element={
