@@ -322,6 +322,36 @@ describe('flattenRecipe — yield-based resolution', () => {
     expect(flattenRecipe('dish', lookup, convert).usesLegacyBatchMultiplier).toBe(true);
   });
 
+  // FR-06 needs the identity of the offending recipes, not just the flag —
+  // a warning that says "some sub-recipe needs a yield" isn't actionable.
+  it('names the yield-less sub-recipes it had to read as batch multipliers', () => {
+    const lookup = recipeGraph({
+      dish: [subQty('sauce', '1', 'kg'), sub('oldStock', '2')],
+      sauce: { lines: [sub('oldBase', '1')], yieldQuantity: '2', yieldUnitId: 'kg' },
+      oldBase: [item('flour', '1')],
+      oldStock: [item('bones', '1')],
+    });
+    expect(flattenRecipe('dish', lookup, convert).legacyRecipeIds).toEqual(['oldBase', 'oldStock']);
+  });
+
+  it('reports each legacy sub-recipe once, however many lines reach it', () => {
+    const lookup = recipeGraph({
+      dish: [sub('oldBase', '1'), sub('oldBase', '2')],
+      oldBase: [item('flour', '1')],
+    });
+    const result = flattenRecipe('dish', lookup, convert);
+    expect(result.legacyRecipeIds).toEqual(['oldBase']);
+    expect(result.ingredients).toEqual([{ itemId: 'flour', quantity: '3' }]);
+  });
+
+  it('leaves legacyRecipeIds empty when every yield is set', () => {
+    const lookup = recipeGraph({
+      dish: [subQty('sauce', '0.5', 'kg')],
+      sauce: { lines: [item('tomato', '1.5')], yieldQuantity: '2', yieldUnitId: 'kg' },
+    });
+    expect(flattenRecipe('dish', lookup, convert).legacyRecipeIds).toEqual([]);
+  });
+
   it('rejects a sub-recipe line with a yield-bearing child but no unit on the line', () => {
     const lookup = recipeGraph({
       dish: [sub('sauce', '1')],

@@ -23,7 +23,8 @@ export interface ApplyStockTransactionInput {
   referenceType: string | null;
   referenceId: string | null;
   reasonCode: string | null;
-  performedById: string;
+  /** Null = system-performed (FR-06 POS deduction), not a user action. */
+  performedById: string | null;
   allowNegativeBalance: boolean;
 }
 

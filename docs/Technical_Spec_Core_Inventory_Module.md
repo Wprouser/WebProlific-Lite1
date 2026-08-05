@@ -1031,6 +1031,24 @@ model RecipeLine {
 - `PATCH /menu-items/:id/activate` → `409` if no recipe exists.
 - **Sub-recipe edits do not retroactively affect parent recipes.** Because parent recipes pin a specific version of each sub-recipe they reference, editing a sub-recipe (creating a new version of it) does not automatically update any parent recipe's cost or consumption — the parent continues resolving against the sub-recipe version it originally referenced until the parent itself is edited/re-versioned to point at the newer sub-recipe version. This is correct for historical accuracy (past sales stay costed against what was actually used), but is a real operational behavior worth surfacing in the UI (e.g., a "this sub-recipe has a newer version — update references?" prompt on the sub-recipe's own screen), so it doesn't silently surprise someone who updated a sauce recipe and expected every dish using it to reflect the change immediately.
 
+### Screens (Frontend)
+
+This section was missing from the original FR-05 spec — the backend was fully built with no UI to actually create or manage a recipe. Corrected here, following the same full-page-not-modal pattern established for PO/GRN (FR-04), since a recipe is a multi-line document, not a quick single-record edit like Item/Category.
+
+**Menu Item list screen** (`/menu-items`) — a `ResponsiveTable` list: name, active/inactive status, current recipe version, computed cost (from `GET /:id/cost`), and a **"Needs yield" badge** on any menu item whose cost calculation currently traverses a legacy (yield-less) recipe anywhere in its tree (`usesLegacyBatchMultiplier: true`) — this is the discoverable worklist entry point that FR-06's `LEGACY_RECIPE_DEDUCTION` warnings point back to. "+ New Menu Item" button.
+
+**Menu Item detail / Recipe builder screen** (`/menu-items/:id`, full page, not a modal) — structured the same way as other detail screens (summary header + tabbed body):
+- **Summary header:** menu item name, active/inactive toggle (disabled with an explanatory tooltip if no recipe exists yet, per the `PATCH /:id/activate` business rule), current recipe version number, computed cost, and the "Needs yield" badge if applicable.
+- **Recipe tab (default):** the actual recipe builder —
+  - **Yield section:** yield quantity + unit fields (per the Unit of Measure picker from FR-01) — required before this recipe can be referenced as a sub-recipe by anything else, with inline validation matching that rule.
+  - **Ingredient lines:** an "Add Line" flow that lets the user choose either **a raw ingredient** (Item picker, quantity in the item's own unit) **or a sub-recipe** (a picker scoped to other Menu Items/Recipes that already have a yield set — yield-less recipes should not even appear as selectable sub-recipe options here, proactively preventing the 409 rather than just reacting to it) with quantity + a unit picker (`quantityUnitId`) that's validated to share a base unit with the chosen sub-recipe's yield unit.
+  - Each line shows its computed contribution to total cost, and the recipe's total cost sums live as lines are added/edited.
+  - **Saving creates a new version** (per the versioning business rule) — the UI should make this explicit (e.g., "Saving will create Version 3" rather than silently overwriting), since this is a meaningful, deliberate action, not an implicit side effect.
+- **Version History tab:** every past version of this recipe, each showing its lines/yield/cost as they were at that version — read-only, since past versions are immutable and pinned to historical sales.
+- **Used In tab:** the reverse lookup — every other recipe that currently references this one as a sub-recipe (useful before editing a widely-used sub-recipe like a base sauce, so the person editing it understands its blast radius, even knowing per the note above that existing parent recipes won't auto-update).
+
+**Sub-recipe "newer version available" indicator:** on a sub-recipe's own detail screen, if any parent recipe references an older version of it, show a visible note (e.g., "3 recipes still use an older version of this") — surfacing the non-propagation behavior described in Business Logic, rather than letting it be a silent surprise.
+
 ### Acceptance Criteria
 - [ ] Editing a recipe creates a new version; old version remains queryable
 - [ ] Circular sub-recipe reference is rejected with a clear error, not an infinite loop
@@ -1040,6 +1058,10 @@ model RecipeLine {
 - [ ] A sub-recipe line's unit and its target recipe's yield unit must share a base unit (FR-01), or the save is rejected
 - [ ] Existing (legacy) recipes with no yield continue to resolve using the old batch-multiplier interpretation, unchanged, and are flagged via `usesLegacyBatchMultiplier` on cost lookups
 - [ ] `convertUnitQuantity`'s new precision parameter defaults to 3, leaving every existing FR-01/FR-02 caller's behavior completely unchanged
+- [ ] The Menu Item list screen shows a "Needs yield" badge on any item whose cost traverses a legacy recipe, and this is reachable through normal navigation, not only via the API
+- [ ] The sub-recipe picker on the Recipe builder screen only offers recipes that already have a yield set — a yield-less recipe is never selectable, proactively preventing the 409 rather than only reacting to it after the fact
+- [ ] Saving a recipe edit clearly communicates that a new version is being created, not silently overwriting the current one
+- [ ] A sub-recipe's detail screen indicates if any parent recipe is still referencing an older version of it
 
 ---
 
@@ -1053,20 +1075,52 @@ model Sale {
   menuItemId       String
   quantitySold     Decimal  @db.Decimal(10,3)
   recipeVersionUsed Int
-  posReferenceId   String   @unique   // idempotency key from POS system
+  posReferenceId   String   @unique   // idempotency key — from the POS system for webhook-sourced sales, or a generated key ("import:<batchId>:<row>") for batch-imported sales
+  sourceType       String   @default("WEBHOOK")  // 'WEBHOOK' | 'BATCH_IMPORT' | 'MANUAL' — which integration path produced this Sale (see the two supported models below)
+  importBatchId    String?  // FK to SaleImportBatch, set only when sourceType = 'BATCH_IMPORT'
   isVoid           Boolean  @default(false)
   saleTimestamp    DateTime
   createdAt        DateTime @default(now())
 }
+
+model SaleImportBatch {
+  id            String   @id @default(uuid())
+  outletId      String
+  fileName      String?  // original uploaded file name, for reference
+  importedById  String
+  status        String   @default("STAGED")  // 'STAGED' | 'PROCESSING' | 'COMPLETED' | 'COMPLETED_WITH_WARNINGS'
+  totalRows     Int
+  processedRows Int      @default(0)
+  createdAt     DateTime @default(now())
+  processedAt   DateTime?
+}
 ```
+
+### Two Supported Integration Models — Not Mutually Exclusive
+
+Real-world POS systems vary widely in integration depth, especially across the small hotel/restaurant market this product targets — some support real-time outbound webhooks; many smaller or regional POS systems only offer a daily sales export (CSV/Excel) or no direct integration at all. Rather than assuming one model, **both are supported, sharing the exact same underlying deduction logic** — the only difference is how a `Sale` record gets created; everything downstream (recipe resolution, stock deduction, void handling) is identical regardless of source.
+
+**Model 1 — Real-time webhook** (`sourceType: 'WEBHOOK'`): as originally specified — the POS calls `/pos-webhook/sale` the instant a sale happens. Best experience when available, since stock stays continuously accurate.
+
+**Model 2 — Daily batch import + manual "Run BOM"** (`sourceType: 'BATCH_IMPORT'`): for POS systems that only export sales in bulk (e.g., an end-of-day report), or restaurants with no live POS integration at all.
+1. **Import:** a user uploads a CSV/Excel file (or, for a POS with a pull-style daily export API, a scheduled job fetches it) containing rows of `menuItemName/SKU, quantitySold, saleDate` (and optionally a POS reference per row). This creates a `SaleImportBatch` with `status: STAGED` — **nothing is deducted yet**.
+2. **Review screen:** before processing, the user sees a staging table — every row, with its matched `MenuItem` (fuzzy-matched by name/SKU, same pattern as invoice-scan item matching in FR-04), any rows that failed to match flagged clearly, and a computed preview of the total ingredient deduction this batch would cause (mirroring the "Inventory Impact preview" pattern already established for GRN's "Post Received Items").
+3. **"Run BOM" action:** an explicit button the user clicks to confirm and process the batch — this is the moment `Sale` rows are actually created and stock is deducted, one row at a time, through the exact same recipe-resolution and deduction logic as the webhook path. This is a deliberate, reviewed action, not a silent background process — matching the workflow you described (import → review → user runs BOM → depletion happens).
+4. Batch status updates to `COMPLETED` (all rows matched and processed) or `COMPLETED_WITH_WARNINGS` (some rows had no recipe match, logged the same `RecipeMissingWarning` as the webhook path, per-row, without blocking the rest of the batch).
+
+**Model 3 — Manual entry fallback** (`sourceType: 'MANUAL'`, unchanged from the original spec): a single sale entered by hand via `/sales/manual`, for outlets with no POS integration of any kind and no batch export either — the smallest-scale fallback.
 
 ### API Endpoints
 | Method | Endpoint | Purpose |
 |---|---|---|
-| `POST` | `/pos-webhook/sale` | Inbound webhook from POS on each sale (HMAC-signed) |
-| `POST` | `/pos-webhook/void` | Inbound webhook on sale void/refund |
-| `POST` | `/sales/manual` | Manual entry fallback (no POS integration for outlet) |
-| `GET` | `/sales` | List/filter sales |
+| `POST` | `/pos-webhook/sale` | Inbound webhook from POS on each sale (HMAC-signed) — Model 1 |
+| `POST` | `/pos-webhook/void` | Inbound webhook on sale void/refund — Model 1 |
+| `POST` | `/sales/import-batches` | Upload a daily sales file, creates a `STAGED` batch — Model 2, step 1 |
+| `GET` | `/sales/import-batches/:id` | Staging review — matched/unmatched rows, projected ingredient impact |
+| `PATCH` | `/sales/import-batches/:id/rows/:rowId` | Manually correct an unmatched row's menu item mapping before running |
+| `POST` | `/sales/import-batches/:id/run` | **"Run BOM"** — processes the batch, creates `Sale` rows and deducts stock — Model 2, step 3 |
+| `POST` | `/sales/manual` | Manual single-sale entry fallback — Model 3 |
+| `GET` | `/sales` | List/filter sales (filterable by `sourceType`) |
 
 **POST /pos-webhook/sale — Request:**
 ```json
@@ -1079,15 +1133,39 @@ model Sale {
 ```
 
 ### Business Logic
-1. **Idempotency:** if `posReferenceId` already exists, return `200` without reprocessing (POS webhooks may retry).
-2. Look up `MenuItem.recipes` current version. If none exists → log a `RecipeMissingWarning` event (surfaces in an admin "unmapped items" queue) and skip stock deduction — **do not fail the webhook** (POS must not see errors for a data-mapping gap).
-3. If recipe exists: for each `RecipeLine`, create a `StockTransaction` (`type: USAGE_OUT`, `quantity: recipeLine.quantity * quantitySold`, `referenceType: 'SALE'`, `referenceId: sale.id`) via the FR-02 service. If a line references a sub-recipe, resolve recursively.
-4. On `/pos-webhook/void`: locate original `Sale` by `posReferenceId`, mark `isVoid=true`, and create reversing `StockTransaction`s (`type: ADJUSTMENT_IN`) for each ingredient.
+1. **Idempotency:** if `posReferenceId` already exists, return `200` without reprocessing (POS webhooks may retry). For batch imports, the generated `posReferenceId` (`import:<batchId>:<row>`) makes re-running the same batch safe in the same way.
+2. Look up `MenuItem.recipes` current version. If none exists → log a `RecipeMissingWarning` event (surfaces in an admin "unmapped items" queue) and skip stock deduction — **do not fail the webhook, and do not halt a batch run** (a single unmapped row must not block the rest of the batch).
+3. If recipe exists: for each `RecipeLine`, create a `StockTransaction` (`type: USAGE_OUT`, `quantity: recipeLine.quantity * quantitySold`, `referenceType: 'SALE'`, `referenceId: sale.id`) via the FR-02 service. If a line references a sub-recipe, resolve recursively — per FR-05's yield-based precision, including the legacy-batch-multiplier fallback and its warning where applicable.
+4. On `/pos-webhook/void`: locate original `Sale` by `posReferenceId`, mark `isVoid=true`, and create reversing `StockTransaction`s (`type: ADJUSTMENT_IN`) for each ingredient. A batch-imported sale can also be voided the same way, by its generated `posReferenceId`.
+5. **Batch row matching** uses the same fuzzy name/SKU matching approach as FR-04's invoice-scan item matching — consistent matching logic reused, not reinvented.
+6. **The `sourceType`/`importBatchId` distinction exists purely for traceability and reporting** (e.g., "how much of this month's depletion came from live POS vs. manual daily import") — it has zero effect on the deduction logic itself, which is identical regardless of source.
+
+### Screens (Frontend)
+
+A **"Sales"** nav entry (top-level sidebar, same tier as Items/Stock/Suppliers) is the home for everything in this FR — a webhook integration has no UI of its own (it's server-to-server), but the batch-import path, sales history, and the unmapped-items worklist all need real screens, none of which existed in the original spec.
+
+**Sales list screen** (`/sales`) — a `ResponsiveTable`: menu item, quantity sold, source (badge: Webhook / Batch Import / Manual), date, void status. Filterable by source, date range, and menu item. A **"Import Daily Sales"** button here starts the batch-import flow below.
+
+**Unmapped Items worklist** — a filtered view (either its own tab on this screen, or a dedicated `/sales/unmapped` route) listing every `RecipeMissingWarning` — the menu items that have been sold (via any source) but have no recipe, so their ingredient consumption was never deducted. This is the discoverable equivalent of FR-05's "Needs yield" badge, but for "needs a recipe at all" — each row links directly to that menu item's Recipe builder screen (FR-05) to fix it.
+
+**Batch Import flow** (full page, not a modal, per the established pattern for multi-step/data-heavy flows — matching PO/GRN and the Recipe builder):
+- **Step 1 — Upload** (`/sales/import`): file picker (CSV/Excel), brief format guidance (expected columns: menu item name/SKU, quantity sold, sale date). Submitting creates a `STAGED` `SaleImportBatch` and moves to Step 2.
+- **Step 2 — Review** (`/sales/import/:batchId`): the staging table — every row from the file, showing the matched `MenuItem` (or an inline picker to correct/assign one if unmatched, so a bad match never requires re-uploading the whole file), quantity, and date. A summary panel shows the **projected ingredient-impact preview** — the aggregate stock deduction this batch would cause if run now, mirroring GRN's "Post Received Items" preview pattern exactly. Rows with no possible match are visually flagged (using the operational severity color tokens — warning-amber) but do not block the rest of the batch.
+- **Step 3 — Run BOM**: a clearly-labeled primary action button (not generic "Submit" — "Run BOM" is the deliberate, correct label per the workflow this was built around), with a confirmation step showing the total row count and total projected deduction before committing, since this is an action with real, immediate stock consequences across potentially many menu items at once. After running, the batch's status updates and the screen shows a completion summary (rows processed, any that were skipped with warnings).
 
 ### Acceptance Criteria
 - [ ] Replaying the same webhook payload twice does not double-deduct stock
-- [ ] A sale for a menu item with no recipe does not throw a 5xx — it succeeds and logs a mapping warning
-- [ ] Voiding a sale correctly reverses all ingredient deductions, including sub-recipe items
+- [ ] A sale for a menu item with no recipe does not throw a 5xx (webhook) or halt a batch run — it's skipped with a logged warning either way
+- [ ] Voiding a sale correctly reverses all ingredient deductions, including sub-recipe items, regardless of `sourceType`
+- [ ] Uploading a daily sales file creates a `STAGED` batch with zero stock impact until "Run BOM" is explicitly triggered
+- [ ] The batch review screen shows a projected ingredient-impact preview before the user commits, mirroring GRN's "Post Received Items" pattern
+- [ ] An unmatched row in a batch can be manually corrected before running, without needing to re-upload the file
+- [ ] Re-running an already-completed batch does not double-deduct stock (idempotency holds for batch-sourced sales too)
+- [ ] "Sales" appears as a top-level sidebar nav entry, reachable without going through any other screen
+- [ ] Every menu item with a `RecipeMissingWarning` appears in a discoverable Unmapped Items worklist, each linking directly to that item's Recipe builder screen
+- [ ] The batch import flow never deducts stock at upload time — only after the user explicitly clicks "Run BOM" on the review screen
+- [ ] An unmatched row in the review screen can be corrected via an inline picker, without re-uploading the file
+- [ ] Running a batch shows a confirmation with total row count and projected deduction before committing
 
 ---
 

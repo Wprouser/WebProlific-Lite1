@@ -13,7 +13,10 @@ export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 export const REASON_CODES = ['EXPIRED', 'DAMAGED', 'SPILLED', 'OVER_PREPARED'] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 
-export const REFERENCE_TYPES = ['PO', 'GRN', 'TRANSFER', 'MANUAL'] as const;
+// 'SALE' added by FR-06: a POS-driven USAGE_OUT points back at the Sale row
+// that caused it, which is what makes a void reversible by replaying the
+// exact transactions rather than recomputing from a possibly-edited recipe.
+export const REFERENCE_TYPES = ['PO', 'GRN', 'TRANSFER', 'SALE', 'MANUAL'] as const;
 export type ReferenceType = (typeof REFERENCE_TYPES)[number];
 
 // +1 for *_IN types (added to currentStock), -1 for *_OUT types (subtracted).

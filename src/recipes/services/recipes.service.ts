@@ -37,6 +37,13 @@ import {
 // precisely for this kind of work.
 const MUTATE_ROLES = ['CHAIN_OWNER', 'PROPERTY_MANAGER', 'OUTLET_MANAGER', 'CHEF'] as const;
 
+export interface MenuItemWithYieldStatus extends MenuItem {
+  /** True when one of this menu item's recipe versions is consumed as a
+   * sub-recipe but has no yield — so any sale deducting through it is
+   * approximate. Drives the "Needs yield" badge. */
+  needsYield: boolean;
+}
+
 @Injectable()
 export class RecipesService {
   constructor(
@@ -73,6 +80,37 @@ export class RecipesService {
     const menuItem = await this.getMenuItemOrThrow(id);
     assertOutletAccess(request, menuItem.outletId);
     return menuItem;
+  }
+
+  /**
+   * List/detail as the screens consume them, with FR-06's "Needs yield"
+   * flag attached.
+   *
+   * Kept separate from the plain `listMenuItems`/`getMenuItem` above rather
+   * than folded into them: those two feed audit-log before/after snapshots,
+   * and a derived, non-persisted field appearing in a change diff would read
+   * as a data change that never happened.
+   *
+   * Resolved in one repository call for the whole page, not per row.
+   */
+  async listMenuItemsWithYieldStatus(
+    request: RequestWithAccess,
+    query: QueryMenuItemsDto,
+  ): Promise<MenuItemWithYieldStatus[]> {
+    const menuItems = await this.listMenuItems(request, query);
+    const needsYield = new Set(
+      await this.menuItemRepository.findIdsNeedingYield(menuItems.map((menuItem) => menuItem.id)),
+    );
+    return menuItems.map((menuItem) => ({ ...menuItem, needsYield: needsYield.has(menuItem.id) }));
+  }
+
+  async getMenuItemWithYieldStatus(
+    request: RequestWithAccess,
+    id: string,
+  ): Promise<MenuItemWithYieldStatus> {
+    const menuItem = await this.getMenuItem(request, id);
+    const needsYield = await this.menuItemRepository.findIdsNeedingYield([id]);
+    return { ...menuItem, needsYield: needsYield.length > 0 };
   }
 
   async updateMenuItem(

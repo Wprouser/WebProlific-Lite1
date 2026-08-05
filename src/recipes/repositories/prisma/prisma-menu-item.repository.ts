@@ -50,4 +50,22 @@ export class PrismaMenuItemRepository implements MenuItemRepository {
     const rows = await this.prisma.menuItem.findMany({ where, orderBy: { name: 'asc' } });
     return rows.map(toDomain);
   }
+
+  async findIdsNeedingYield(menuItemIds: string[]): Promise<string[]> {
+    if (menuItemIds.length === 0) return [];
+
+    const recipes = await this.prisma.recipe.findMany({
+      where: {
+        menuItemId: { in: menuItemIds },
+        yieldQuantity: null,
+        // `some: {}` is "referenced by at least one recipe line" — the part
+        // that separates a legitimately yield-less dish recipe from one
+        // another recipe actually consumes as an ingredient.
+        usedAsSubRecipeIn: { some: {} },
+      },
+      select: { menuItemId: true },
+      distinct: ['menuItemId'],
+    });
+    return recipes.map((recipe) => recipe.menuItemId);
+  }
 }

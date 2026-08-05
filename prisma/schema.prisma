@@ -46,17 +46,19 @@ model Property {
 }
 
 model Outlet {
-  id                  String     @id @default(uuid())
+  id                  String            @id @default(uuid())
   propertyId          String
-  property            Property   @relation(fields: [propertyId], references: [id])
+  property            Property          @relation(fields: [propertyId], references: [id])
   chainId             String // denormalized from property.chainId for fast scoped queries — see spec note
   name                String
   type                String // OutletType: RESTAURANT | BAR | KITCHEN | STORE | ROOM_SERVICE
-  baseCurrency        String     @default("SAR")
-  poApprovalThreshold Decimal?   @db.Decimal(12, 2)
-  isActive            Boolean    @default(true)
+  baseCurrency        String            @default("SAR")
+  poApprovalThreshold Decimal?          @db.Decimal(12, 2)
+  isActive            Boolean           @default(true)
   items               Item[]
   menuItems           MenuItem[]
+  sales               Sale[]
+  saleImportBatches   SaleImportBatch[]
 
   @@index([propertyId])
   @@index([chainId])
@@ -786,11 +788,17 @@ model StockTransaction {
   type          String // TransactionType: PURCHASE_IN | OPENING_BALANCE | TRANSFER_IN | ADJUSTMENT_IN | USAGE_OUT | WASTAGE_OUT | TRANSFER_OUT | ADJUSTMENT_OUT
   quantity      Decimal  @db.Decimal(10, 3) // always positive; direction implied by type
   balanceAfter  Decimal  @db.Decimal(10, 3) // running balance snapshot, immutable
-  referenceType String? // 'PO' | 'GRN' | 'TRANSFER' | 'MANUAL'
+  referenceType String? // 'PO' | 'GRN' | 'TRANSFER' | 'SALE' | 'MANUAL'
   referenceId   String?
   reasonCode    String? // required for WASTAGE_OUT: 'EXPIRED' | 'DAMAGED' | 'SPILLED' | 'OVER_PREPARED'
   photoUrl      String?
-  performedById String
+  // Nullable as of FR-06: a POS webhook is authenticated by HMAC signature,
+  // not by a user session, so a sale-driven deduction genuinely has no human
+  // actor to attribute. Null means "the system did this" — the same meaning
+  // ActivityLog.userId and TransactionLog.performedById already carry, and
+  // the reason both were declared nullable before this. Every user-initiated
+  // path (FR-02 manual entry, GRN, transfers) still sets it.
+  performedById String?
   createdAt     DateTime @default(now())
 
   @@index([itemId, createdAt])
@@ -815,6 +823,10 @@ model MenuItem {
   // PATCH /menu-items/:id/activate is the only way to flip it.
   isActive Boolean  @default(false)
   recipes  Recipe[]
+
+  // FR-06 back-relations.
+  sales          Sale[]
+  saleImportRows SaleImportRow[]
 
   @@unique([outletId, name])
   @@index([outletId, isActive])
@@ -888,12 +900,112 @@ model RecipeLine {
   quantityUnitId String?
   quantityUnit   UnitOfMeasure? @relation("RecipeLineQuantityUnit", fields: [quantityUnitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  // NOTE: no unit column — quantity is expressed in the ingredient Item's own
-  // unitId. For a sub-recipe line, it is a batch multiplier (Recipe has no
-  // yield/batch-size field to express "200 g of the sauce"); flagged as a
-  // spec gap rather than papered over with an invented column.
-
   @@index([recipeId])
   @@index([itemId])
   @@index([subRecipeId])
+}
+
+// FR-06: Auto Stock Deduction on POS Sale
+//
+// One row per sold menu item, from any of the three integration models
+// (live webhook / reviewed batch import / manual entry). The sourceType and
+// importBatchId columns exist purely for traceability and reporting — the
+// deduction logic behind them is identical, and lives in one service.
+//
+// onDelete/onUpdate: NoAction throughout this section is forced, not
+// stylistic: Sale reaches Outlet by two paths (directly, and via
+// menuItem -> outlet), which SQL Server rejects as "multiple cascade paths".
+// Same constraint RecipeLine and UnitOfMeasure hit above.
+model Sale {
+  id           String   @id @default(uuid())
+  outletId     String
+  outlet       Outlet   @relation(fields: [outletId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  menuItemId   String
+  menuItem     MenuItem @relation(fields: [menuItemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantitySold Decimal  @db.Decimal(10, 3)
+
+  // Deviation from the spec's `recipeVersionUsed Int`, deliberately:
+  // nullable, where null means "no recipe was in force when this sold". The
+  // spec's own business logic creates exactly that state — an unmapped menu
+  // item is recorded as a sale and skipped for deduction, never rejected —
+  // so a non-null Int would have to invent a magic 0. Null is the honest
+  // representation, and it is what drives the Unmapped Items worklist.
+  recipeVersionUsed Int?
+
+  // Idempotency key. From the POS for webhook sales; generated as
+  // "import:<batchId>:<rowNumber>" for batch rows and "manual:<uuid>" for
+  // hand-entered ones, so every source is replay-safe by the same @unique.
+  posReferenceId String           @unique
+  sourceType     String           @default("WEBHOOK") // SaleSourceType: WEBHOOK | BATCH_IMPORT | MANUAL
+  importBatchId  String?
+  importBatch    SaleImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  isVoid        Boolean   @default(false)
+  voidedAt      DateTime?
+  saleTimestamp DateTime
+  createdAt     DateTime  @default(now())
+
+  @@index([outletId, saleTimestamp])
+  @@index([menuItemId])
+  @@index([importBatchId])
+  // Serves the Unmapped Items worklist: "sold, but had no recipe".
+  @@index([outletId, recipeVersionUsed])
+}
+
+// FR-06 Model 2 — a staged daily sales file. Created by the upload step with
+// status STAGED and ZERO stock impact; nothing is deducted until a user
+// explicitly triggers "Run BOM", which is the whole point of the two-step
+// design (see the spec's Screens section).
+model SaleImportBatch {
+  id           String  @id @default(uuid())
+  outletId     String
+  outlet       Outlet  @relation(fields: [outletId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  fileName     String?
+  importedById String
+
+  status        String    @default("STAGED") // SaleImportStatus: STAGED | PROCESSING | COMPLETED | COMPLETED_WITH_WARNINGS
+  totalRows     Int
+  processedRows Int       @default(0)
+  createdAt     DateTime  @default(now())
+  processedAt   DateTime?
+
+  rows  SaleImportRow[]
+  sales Sale[]
+
+  @@index([outletId, createdAt])
+}
+
+// Not in the spec's data-model block, but required by its own API surface:
+// PATCH /sales/import-batches/:id/rows/:rowId and the Review screen both
+// operate on individual staged rows, and SaleImportBatch carries only
+// counters. This is where an uploaded file's rows live between upload and
+// "Run BOM".
+model SaleImportRow {
+  id        String          @id @default(uuid())
+  batchId   String
+  batch     SaleImportBatch @relation(fields: [batchId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rowNumber Int // 1-based, as it appeared in the uploaded file
+
+  // Exactly as read from the file, never overwritten — a corrected match
+  // changes matchedMenuItemId, so the review screen can always show what the
+  // file actually said next to what it was matched to.
+  rawMenuItemName String
+  rawSku          String?
+  quantitySold    Decimal  @db.Decimal(10, 3)
+  saleDate        DateTime
+  posReferenceRaw String?
+
+  // Fuzzy-matched at upload via FR-04's findBestFuzzyMatch (shared, not
+  // reimplemented). Null until matched or manually assigned.
+  matchedMenuItemId String?
+  matchedMenuItem   MenuItem? @relation(fields: [matchedMenuItemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  matchStatus       String    @default("UNMATCHED") // SaleImportRowMatchStatus: MATCHED | UNMATCHED | MANUAL
+
+  // Set once the batch runs: the Sale this row produced, or why it produced
+  // none. A skipped row never blocks the rest of the batch.
+  saleId     String?
+  skipReason String?
+
+  @@unique([batchId, rowNumber])
+  @@index([batchId, matchStatus])
 }

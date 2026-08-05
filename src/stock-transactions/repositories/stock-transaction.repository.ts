@@ -9,7 +9,8 @@ export interface CreateStockTransactionInput {
   referenceType: ReferenceType | null;
   referenceId: string | null;
   reasonCode: ReasonCode | null;
-  performedById: string;
+  /** Null = performed by the system (FR-06 POS deduction), not a user. */
+  performedById: string | null;
   // Already role-resolved by the service (spec: OUTLET_MANAGER+ passing
   // forceOverride:true) — the repository just needs to know whether a
   // would-go-negative balance is allowed, not who's allowed to ask for it.
@@ -48,6 +49,13 @@ export interface StockTransactionRepository {
   createWithBalanceUpdate(input: CreateStockTransactionInput): Promise<CreateStockTransactionResult>;
   findById(id: string): Promise<StockTransaction | null>;
   findScoped(filters: StockTransactionFilters): Promise<StockTransaction[]>;
+  /**
+   * FR-06 void: every movement written against one reference, oldest first.
+   * Voiding a sale reverses *these rows*, rather than re-resolving the
+   * recipe — a recipe edited between sale and void would otherwise reverse
+   * quantities that were never deducted.
+   */
+  findByReference(referenceType: ReferenceType, referenceId: string): Promise<StockTransaction[]>;
   /** FR-16: whether this outlet has any transactional history at all —
    * used to block base-currency changes once real data exists. Cheap
    * existence check, not a count, since the caller only needs a boolean. */

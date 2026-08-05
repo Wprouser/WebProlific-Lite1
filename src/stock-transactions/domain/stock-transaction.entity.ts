@@ -11,6 +11,8 @@ export interface StockTransaction {
   referenceId: string | null;
   reasonCode: ReasonCode | null;
   photoUrl: string | null;
-  performedById: string;
+  // Null for system-performed movements — FR-06's POS deductions are
+  // authenticated by webhook signature, not by a user session.
+  performedById: string | null;
   createdAt: Date;
 }

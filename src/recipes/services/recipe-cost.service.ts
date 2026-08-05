@@ -14,6 +14,7 @@ import {
   MissingSubRecipeError,
   toScaled,
   type ConvertQuantity,
+  type FlattenedIngredient,
   type RecipeLookup,
   type ResolvableRecipe,
 } from '../lib/resolve-recipe-tree';
@@ -45,6 +46,20 @@ export interface RecipeCost {
    * than a silent inaccuracy — see the spec's "Migration — no backfill".
    */
   usesLegacyBatchMultiplier: boolean;
+  /** Which sub-recipes were resolved that way — the actionable half of the
+   * flag above, and what the "Needs yield" badge points at. */
+  legacyRecipeIds: string[];
+}
+
+/** A recipe version flattened to raw-item totals, without pricing. */
+export interface ResolvedRecipeVersion {
+  menuItemId: string;
+  recipeId: string;
+  recipeVersion: number;
+  /** Per-portion quantities, each in its item's own stocking unit. */
+  ingredients: FlattenedIngredient[];
+  usesLegacyBatchMultiplier: boolean;
+  legacyRecipeIds: string[];
 }
 
 @Injectable()
@@ -66,6 +81,57 @@ export class RecipeCostService {
    * the latter would need price history per item, which FR-05 doesn't model.
    */
   async costRecipeVersion(menuItemId: string, version?: number): Promise<RecipeCost> {
+    const resolved = await this.resolveRecipeVersion(menuItemId, version);
+
+    const components: RecipeCostComponent[] = [];
+    let totalScaled = 0n;
+
+    for (const ingredient of resolved.ingredients) {
+      const item = await this.itemRepository.findById(ingredient.itemId);
+      if (!item) {
+        throw new BadRequestException(
+          `This recipe references item ${ingredient.itemId}, which no longer exists.`,
+        );
+      }
+
+      const lineScaled = (toScaled(ingredient.quantity) * toScaled(item.costPrice)) / SCALE;
+      totalScaled += lineScaled;
+
+      components.push({
+        itemId: item.id,
+        itemName: item.name,
+        quantity: ingredient.quantity,
+        unitId: item.unitId,
+        unitCost: item.costPrice,
+        lineCost: round2(lineScaled),
+      });
+    }
+
+    return {
+      menuItemId,
+      recipeId: resolved.recipeId,
+      recipeVersion: resolved.recipeVersion,
+      // Totalled at full precision and rounded once, rather than summing
+      // already-rounded line costs — otherwise a recipe with many sub-cent
+      // lines drifts from its own components.
+      totalCost: round2(totalScaled),
+      components,
+      usesLegacyBatchMultiplier: resolved.usesLegacyBatchMultiplier,
+      legacyRecipeIds: resolved.legacyRecipeIds,
+    };
+  }
+
+  /**
+   * The tree resolution on its own, without pricing it.
+   *
+   * Split out for FR-06: deducting stock for a sale needs exactly this —
+   * which raw items, how much of each, and which sub-recipes had to be read
+   * as legacy batch multipliers — and has no use for ingredient costs. Both
+   * callers therefore share one traversal and one set of error translations,
+   * so a sale can never resolve to different quantities than the cost screen
+   * shows for the same version.
+   */
+  async resolveRecipeVersion(menuItemId: string, version?: number): Promise<ResolvedRecipeVersion> {
     const recipe =
       version === undefined
         ? await this.recipeRepository.findCurrentByMenuItemId(menuItemId)
@@ -106,40 +172,13 @@ export class RecipeCostService {
       throw error;
     }
 
-    const components: RecipeCostComponent[] = [];
-    let totalScaled = 0n;
-
-    for (const ingredient of flattened.ingredients) {
-      const item = await this.itemRepository.findById(ingredient.itemId);
-      if (!item) {
-        throw new BadRequestException(
-          `This recipe references item ${ingredient.itemId}, which no longer exists.`,
-        );
-      }
-
-      const lineScaled = (toScaled(ingredient.quantity) * toScaled(item.costPrice)) / SCALE;
-      totalScaled += lineScaled;
-
-      components.push({
-        itemId: item.id,
-        itemName: item.name,
-        quantity: ingredient.quantity,
-        unitId: item.unitId,
-        unitCost: item.costPrice,
-        lineCost: round2(lineScaled),
-      });
-    }
-
     return {
       menuItemId,
       recipeId: recipe.id,
       recipeVersion: recipe.version,
-      // Totalled at full precision and rounded once, rather than summing
-      // already-rounded line costs — otherwise a recipe with many sub-cent
-      // lines drifts from its own components.
-      totalCost: round2(totalScaled),
-      components,
+      ingredients: flattened.ingredients,
       usesLegacyBatchMultiplier: flattened.usesLegacyBatchMultiplier,
+      legacyRecipeIds: flattened.legacyRecipeIds,
     };
   }
 

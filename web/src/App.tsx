@@ -24,6 +24,11 @@ import { DirectGrnForm } from '@/routes/DirectGrnForm';
 import { PoGrnForm } from '@/routes/PoGrnForm';
 import { ScanInvoiceGrnForm } from '@/routes/ScanInvoiceGrnForm';
 import { GrnDetail } from '@/routes/GrnDetail';
+import { MenuItems } from '@/routes/MenuItems';
+import { MenuItemDetail } from '@/routes/MenuItemDetail';
+import { Sales } from '@/routes/Sales';
+import { SalesImportUpload } from '@/routes/SalesImportUpload';
+import { SalesImportReview } from '@/routes/SalesImportReview';
 import { getSession } from '@/lib/auth-store';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -81,6 +86,11 @@ export function App() {
             <Route path="/grn/new/po" element={<PoGrnForm />} />
             <Route path="/grn/new/po/:poId" element={<PoGrnForm />} />
             <Route path="/grn/:id" element={<GrnDetail />} />
+            <Route path="/menu-items" element={<MenuItems />} />
+            <Route path="/menu-items/:id" element={<MenuItemDetail />} />
+            <Route path="/sales" element={<Sales />} />
+            <Route path="/sales/import" element={<SalesImportUpload />} />
+            <Route path="/sales/import/:batchId" element={<SalesImportReview />} />
             <Route path="/styleguide" element={<Styleguide />} />
             <Route path="/alerts/:type" element={<AlertList />} />
           </Route>

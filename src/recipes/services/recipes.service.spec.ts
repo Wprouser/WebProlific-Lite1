@@ -56,6 +56,11 @@ class FakeMenuItems implements MenuItemRepository {
   async findScoped() {
     return [...this.rows.values()];
   }
+  /** Exercised through the repository's own integration coverage — the
+   * service logic under test here never consults it. */
+  async findIdsNeedingYield() {
+    return [];
+  }
 }
 
 class FakeRecipes implements RecipeRepository {

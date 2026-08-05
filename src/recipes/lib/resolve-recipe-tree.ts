@@ -178,6 +178,13 @@ export interface FlattenResult {
    * worklist rather than a silent inaccuracy.
    */
   usesLegacyBatchMultiplier: boolean;
+  /**
+   * *Which* sub-recipes were read that way, in encounter order. FR-06 needs
+   * the identity, not just the fact: a POS deduction through a legacy path
+   * logs a warning naming the recipe that needs a yield, which is what turns
+   * "something in here is imprecise" into a fixable worklist item.
+   */
+  legacyRecipeIds: string[];
 }
 
 export class MissingQuantityUnitError extends Error {
@@ -209,7 +216,7 @@ export function flattenRecipe(
 
   const totals = new Map<string, bigint>();
   const order: string[] = [];
-  let usesLegacyBatchMultiplier = false;
+  const legacyRecipeIds = new Set<string>();
 
   /**
    * How much of a sub-recipe's batch one line consumes, as a SCALE-scaled
@@ -223,7 +230,7 @@ export function flattenRecipe(
    */
   function resolveMultiplier(line: ResolvableLine, child: ResolvableRecipe): bigint {
     if (child.yieldQuantity === null || child.yieldUnitId === null) {
-      usesLegacyBatchMultiplier = true;
+      legacyRecipeIds.add(line.subRecipeId!);
       return toScaled(line.quantity);
     }
 
@@ -267,7 +274,8 @@ export function flattenRecipe(
 
   return {
     ingredients: order.map((itemId) => ({ itemId, quantity: fromScaled(totals.get(itemId)!) })),
-    usesLegacyBatchMultiplier,
+    usesLegacyBatchMultiplier: legacyRecipeIds.size > 0,
+    legacyRecipeIds: [...legacyRecipeIds],
   };
 }
 

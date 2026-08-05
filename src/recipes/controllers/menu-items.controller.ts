@@ -35,14 +35,17 @@ export class MenuItemsController {
     return menuItem;
   }
 
+  // Both read routes carry FR-06's `needsYield` flag, so the "Needs yield"
+  // badge is available wherever a menu item is rendered without the screen
+  // having to ask a second endpoint per row.
   @Get()
   list(@Req() request: RequestWithAccess, @Query() query: QueryMenuItemsDto) {
-    return this.recipesService.listMenuItems(request, query);
+    return this.recipesService.listMenuItemsWithYieldStatus(request, query);
   }
 
   @Get(':id')
   findOne(@Req() request: RequestWithAccess, @Param('id') id: string) {
-    return this.recipesService.getMenuItem(request, id);
+    return this.recipesService.getMenuItemWithYieldStatus(request, id);
   }
 
   @Patch(':id')

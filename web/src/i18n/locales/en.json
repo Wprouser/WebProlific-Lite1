@@ -32,7 +32,9 @@
     "reports": "Reports",
     "users": "Users",
     "styleguide": "Styleguide",
-    "soon": "Soon"
+    "soon": "Soon",
+    "menuItems": "Menu Items",
+    "sales": "Sales"
   },
   "dashboard": {
     "title": "Overview",
@@ -819,6 +821,142 @@
       "poDefaultMessage": "Please find attached our purchase order. Kindly confirm receipt.",
       "grnDefaultSubject": "Goods Received Note #{{id}}",
       "grnDefaultMessage": "Please find attached the goods received note for your records."
+    }
+  },
+  "menuItems": {
+    "title": "Menu Items",
+    "subtitle": "Dishes you sell, and the recipes that consume your stock",
+    "searchPlaceholder": "Search menu items",
+    "loadError": "Couldn't load menu items",
+    "backToList": "Back to Menu Items",
+    "needsYield": "Needs yield",
+    "needsYieldHint": "This recipe is used inside another recipe but has no batch size, so deductions through it are approximate",
+    "needsYieldDetail": "Another recipe uses this one as an ingredient, but it has no yield (batch size) recorded — so its quantity is read as \"number of batches\" rather than a real amount. Set a yield to make every deduction through it exact.",
+    "currentRecipe": "Current recipe",
+    "versionHistory": "Version history",
+    "version": "Version {{version}}",
+    "current": "Current",
+    "yields": "Yields {{quantity}} {{unit}}",
+    "noYield": "No yield set",
+    "noRecipe": "No recipe yet — nothing is deducted when this sells.",
+    "subRecipe": "Sub-recipe",
+    "nested": "Nested",
+    "cost": "Recipe cost",
+    "costApproximate": "This cost includes a sub-recipe with no yield, so it is approximate.",
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "ingredient": "Ingredient",
+      "quantity": "Quantity"
+    },
+    "empty": {
+      "title": "No menu items yet",
+      "description": "Menu items appear here once they are created."
+    },
+    "needsYieldSummary": "Recipes used as a sub-recipe with no yield set: {{itemCount}}. Sales deducting through them are approximate until each one has a yield."
+  },
+  "sales": {
+    "title": "Sales",
+    "subtitle": "What sold, where it came from, and what it took out of stock",
+    "loadError": "Couldn't load sales",
+    "importDaily": "Import Daily Sales",
+    "voided": "Voided",
+    "notDeducted": "Not deducted",
+    "tabs": {
+      "sales": "Sales",
+      "unmapped": "Unmapped Items"
+    },
+    "filters": {
+      "allSources": "All sources"
+    },
+    "source": {
+      "WEBHOOK": "Webhook",
+      "BATCH_IMPORT": "Batch Import",
+      "MANUAL": "Manual"
+    },
+    "columns": {
+      "menuItem": "Menu item",
+      "quantity": "Qty",
+      "source": "Source",
+      "date": "Date",
+      "status": "Status"
+    },
+    "empty": {
+      "title": "No sales recorded yet",
+      "description": "Sales appear here as your POS reports them, or once you import a daily file."
+    },
+    "unmapped": {
+      "explainer": "These menu items sold but have no recipe, so nothing was deducted from stock. Add a recipe to each one and future sales will deduct correctly.",
+      "addRecipe": "Add a recipe",
+      "columns": {
+        "saleCount": "Sales",
+        "totalSold": "Total sold",
+        "lastSold": "Last sold"
+      },
+      "empty": {
+        "title": "Nothing unmapped",
+        "description": "Every menu item that has sold has a recipe behind it."
+      }
+    },
+    "import": {
+      "title": "Import Daily Sales",
+      "backToSales": "Back to Sales",
+      "stepUpload": "Step 1 of 3 — upload the file",
+      "stepReview": "Step 2 of 3 — review before running",
+      "fileLabel": "Sales export file (CSV or Excel)",
+      "formatTitle": "What the file needs",
+      "formatColumns": "A column for the menu item (name or SKU), one for quantity sold, and one for the sale date.",
+      "formatOptional": "A POS reference column is optional. Report footers and blank lines are ignored.",
+      "continue": "Upload and review",
+      "uploading": "Uploading…",
+      "uploadError": "Couldn't read that file",
+      "loadError": "Couldn't load this batch",
+      "assignError": "Couldn't update that row",
+      "runError": "Couldn't run this batch",
+      "rows": "Rows from the file",
+      "noMatch": "No match — will be skipped",
+      "matchFor": "Menu item for {{name}}",
+      "columns": {
+        "fromFile": "From the file",
+        "matchedTo": "Matched to",
+        "deduct": "Deducts",
+        "after": "Stock after"
+      },
+      "impactTitle": "Inventory impact",
+      "impactExplainer": "What running this batch would take out of stock, resolved through each recipe including sub-recipes.",
+      "impactEmpty": "Nothing would be deducted — no matched row has a recipe yet.",
+      "skippedLine": "Line {{line}}: {{reason}}",
+      "runBom": "Run BOM",
+      "running": "Running…",
+      "cancel": "Cancel",
+      "confirmTitle": "Run BOM for this batch?",
+      "confirmDescription": "This records the sales and deducts their ingredients from stock. It cannot be undone in bulk — individual sales can be voided afterwards.",
+      "confirmRows": "Rows to process",
+      "confirmIngredients": "Ingredients affected",
+      "confirmSkipped": "Rows that will be skipped",
+      "completed": "Batch run — {{processed}} rows processed, {{skipped}} skipped.",
+      "status": {
+        "STAGED": "Staged",
+        "PROCESSING": "Processing",
+        "COMPLETED": "Completed",
+        "COMPLETED_WITH_WARNINGS": "Completed with warnings"
+      },
+      "matched": "Matched: {{rowCount}}",
+      "unmatched": "Unmatched: {{rowCount}}",
+      "impactIncomplete": "Matched menu items with no recipe: {{itemCount}} — their ingredients are missing from this preview.",
+      "skippedLines": "Lines ignored (not sale rows): {{lineCount}}",
+      "confirmShortfall": "Ingredients that will go below zero: {{itemCount}}. The deductions are still recorded — the shortfall is real.",
+      "dateFormatLabel": "Date format used in this file",
+      "dateFormatHint": "Only affects dates written with slashes or dashes — 03/04/2026 is 3 April or 4 March depending on this. Dates already written as 2026-04-03 are read the same way whatever you pick.",
+      "dateFormat": {
+        "DD/MM/YYYY": "DD/MM/YYYY — day first (03/04/2026 = 3 April)",
+        "MM/DD/YYYY": "MM/DD/YYYY — month first (03/04/2026 = 4 March)",
+        "YYYY-MM-DD": "YYYY-MM-DD — ISO only"
+      }
     }
   }
 }

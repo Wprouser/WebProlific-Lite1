@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   BarChart3,
+  ChefHat,
   ClipboardList,
   Coins,
   FileText,
@@ -10,6 +11,7 @@ import {
   Package,
   Palette,
   Percent,
+  Receipt,
   Truck,
   Users,
 } from 'lucide-react';
@@ -47,6 +49,14 @@ export const navItems: NavItem[] = [
   // FR-04's Purchase Orders and GRN — both now built.
   { labelKey: 'purchaseOrders', icon: FileText, to: '/purchase-orders' },
   { labelKey: 'grn', icon: ClipboardList, to: '/grn' },
+  // FR-05's Menu Items / recipes. Built alongside FR-06 because its Unmapped
+  // Items worklist has to link somewhere, and the "Needs yield" badge has to
+  // live somewhere.
+  { labelKey: 'menuItems', icon: ChefHat, to: '/menu-items' },
+  // FR-06's Sales: history, the Unmapped Items worklist, and the daily
+  // batch-import flow. Top-level, same tier as Items/Stock/Suppliers — the
+  // webhook path has no UI of its own, but everything else here does.
+  { labelKey: 'sales', icon: Receipt, to: '/sales' },
   { labelKey: 'reports', icon: BarChart3 },
   { labelKey: 'users', icon: Users },
   { labelKey: 'styleguide', icon: Palette, to: '/styleguide' },

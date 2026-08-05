@@ -110,6 +110,14 @@ export class PrismaStockTransactionRepository implements StockTransactionReposit
     return rows.map(toDomain);
   }
 
+  async findByReference(referenceType: string, referenceId: string): Promise<StockTransaction[]> {
+    const rows = await this.prisma.stockTransaction.findMany({
+      where: { referenceType, referenceId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map(toDomain);
+  }
+
   async existsForOutlet(outletId: string): Promise<boolean> {
     const row = await this.prisma.stockTransaction.findFirst({
       where: { outletId },

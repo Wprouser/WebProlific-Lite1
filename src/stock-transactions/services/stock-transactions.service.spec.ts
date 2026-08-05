@@ -6,6 +6,7 @@ import { ItemRepository } from '../../items/repositories/item.repository';
 import { Item } from '../../items/domain/item.entity';
 import { RequestWithAccess } from '../../tenancy/types/request-with-access';
 import { AuditLogService } from '../../rbac/services/audit-log.service';
+import { ActivityBus } from '../../activity-log/services/activity-bus.service';
 
 function fixtureItem(overrides: Partial<Item> = {}): Item {
   return {
@@ -87,14 +88,16 @@ describe('StockTransactionsService', () => {
       findScoped: jest.fn().mockResolvedValue([fixtureTransaction()]),
     };
     const auditLogService = { record: jest.fn() } as unknown as AuditLogService;
+    const activityBus = { record: jest.fn() } as unknown as ActivityBus;
     const eventEmitter = { emit: jest.fn() } as any;
     const service = new StockTransactionsService(
       stockTransactionRepository as StockTransactionRepository,
       itemRepository as ItemRepository,
       auditLogService,
+      activityBus,
       eventEmitter,
     );
-    return { service, itemRepository, stockTransactionRepository, auditLogService, eventEmitter };
+    return { service, itemRepository, stockTransactionRepository, auditLogService, activityBus, eventEmitter };
   }
 
   const createDto = { itemId: 'i1', type: 'USAGE_OUT' as const, quantity: '5' };
@@ -215,5 +218,68 @@ describe('StockTransactionsService', () => {
     expect(stockTransactionRepository.findScoped).toHaveBeenCalledWith(
       expect.objectContaining({ accessibleOutletIds: ['o1'] }),
     );
+  });
+
+  // ------------------------------------------------- createSystem (FR-06)
+
+  const systemInput = {
+    itemId: 'i1',
+    type: 'USAGE_OUT' as const,
+    quantity: '5',
+    referenceType: 'SALE' as const,
+    referenceId: 'sale-1',
+    descriptionKey: 'activity.sale.deducted',
+  };
+
+  it('createSystem records with a null actor — a webhook has no user', async () => {
+    const { service, stockTransactionRepository } = buildService();
+    await service.createSystem(systemInput);
+    expect(stockTransactionRepository.createWithBalanceUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ performedById: null, referenceType: 'SALE', referenceId: 'sale-1' }),
+    );
+  });
+
+  it('createSystem always allows a negative balance — an oversell is recorded, never refused', async () => {
+    const { service, stockTransactionRepository } = buildService();
+    await service.createSystem(systemInput);
+    expect(stockTransactionRepository.createWithBalanceUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ allowNegativeBalance: true }),
+    );
+  });
+
+  it('createSystem reports wentNegative so the caller can warn instead of failing', async () => {
+    const { service } = buildService(fixtureItem(), {
+      ok: true,
+      transaction: fixtureTransaction({ balanceAfter: '-2.000', performedById: null }),
+      item: { id: 'i1', outletId: 'o1', minStock: '10', currentStock: '-2.000' },
+    });
+    await expect(service.createSystem(systemInput)).resolves.toMatchObject({ wentNegative: true });
+  });
+
+  it('createSystem logs via ActivityBus, not AuditLogService (whose userId is a required FK)', async () => {
+    const { service, activityBus, auditLogService } = buildService();
+    await service.createSystem(systemInput);
+    expect(activityBus.record).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'STOCK', outletId: 'o1' }),
+    );
+    const [event] = (activityBus.record as jest.Mock).mock.calls[0];
+    expect(event.userId).toBeUndefined();
+    expect(auditLogService.record).not.toHaveBeenCalled();
+  });
+
+  it('createSystem still emits item.stock.changed, so FR-07 alerts fire on POS depletion too', async () => {
+    const { service, eventEmitter } = buildService();
+    await service.createSystem(systemInput);
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'item.stock.changed',
+      expect.objectContaining({ itemId: 'i1', currentStock: '37.000' }),
+    );
+  });
+
+  it('createSystem still rejects a nonexistent item and a non-positive quantity', async () => {
+    const { service, itemRepository } = buildService();
+    await expect(service.createSystem({ ...systemInput, quantity: '0' })).rejects.toThrow(BadRequestException);
+    (itemRepository.findById as jest.Mock).mockResolvedValue(null);
+    await expect(service.createSystem(systemInput)).rejects.toThrow(NotFoundException);
   });
 });

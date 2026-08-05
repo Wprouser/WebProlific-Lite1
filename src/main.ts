@@ -11,6 +11,15 @@ import { UPLOADS_ROOT, UPLOADS_URL_PREFIX } from './storage/repositories/local-d
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.setGlobalPrefix('api/v1');
+  // FR-06: keep the untouched request bytes around so PosSignatureGuard can
+  // verify the POS webhook's HMAC against exactly what was signed. A
+  // signature over a JSON.parse/stringify round trip would reject valid
+  // payloads whose key order or number formatting differ from ours.
+  app.useBodyParser('json', {
+    verify: (req: Request & { rawBody?: Buffer }, _res: Response, buf: Buffer) => {
+      req.rawBody = Buffer.from(buf);
+    },
+  });
   // Served at the bare (non-/api/v1-prefixed) path — setGlobalPrefix only
   // affects controller routes, not static-asset middleware, and item image
   // <img src> tags need a plain URL, not an API route.
