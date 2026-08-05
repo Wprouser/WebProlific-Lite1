@@ -51,7 +51,33 @@
     "unacknowledged": "غیر تسلیم شدہ الرٹس",
     "none": "اس وقت کوئی الرٹ نہیں",
     "needAttention_one": "{{min}} الرٹ پر توجہ درکار ہے",
-    "needAttention_other": "{{min}} الرٹس پر توجہ درکار ہے"
+    "needAttention_other": "{{min}} الرٹس پر توجہ درکار ہے",
+    "title": "الرٹس",
+    "subtitle": "اسٹاک کی سطحیں اور مدتِ افادیت جن پر توجہ درکار ہے",
+    "loadError": "الرٹس لوڈ نہیں ہو سکے",
+    "actionError": "یہ الرٹ اپ ڈیٹ نہیں ہو سکا",
+    "acknowledge": "دیکھ لیا",
+    "resolve": "حل کریں",
+    "createPoDraft": "PO ڈرافٹ بنائیں",
+    "columns": {
+      "alert": "الرٹ",
+      "raised": "کب اٹھا",
+      "status": "حیثیت"
+    },
+    "type": {
+      "LOW_STOCK": "کم اسٹاک",
+      "OUT_OF_STOCK": "اسٹاک ختم",
+      "EXPIRY_WARNING": "میعاد قریب"
+    },
+    "status": {
+      "OPEN": "کھلا",
+      "ACKNOWLEDGED": "دیکھا گیا",
+      "RESOLVED": "حل شدہ"
+    },
+    "empty": {
+      "title": "کچھ بھی توجہ طلب نہیں",
+      "description": "اسٹاک کم ہونے یا میعاد قریب آنے پر الرٹس یہاں نظر آئیں گے۔"
+    }
   },
   "login": {
     "title": "سائن ان کریں",

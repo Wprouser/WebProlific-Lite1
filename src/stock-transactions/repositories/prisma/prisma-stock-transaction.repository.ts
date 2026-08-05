@@ -43,7 +43,40 @@ function snapshotOf(item: PrismaItem): UpdatedItemStockSnapshot {
 export class PrismaStockTransactionRepository implements StockTransactionRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Retries a transaction the database aborted as a deadlock or write
+   * conflict (Prisma P2034), which is precisely what its own error message
+   * asks callers to do.
+   *
+   * This is inherent to the Serializable isolation below, not a new problem:
+   * two concurrent stock-outs on the same item both take a shared lock on
+   * its row and then both need an exclusive one, so SQL Server picks a
+   * victim. Whether that victim's request then answered "insufficient
+   * stock" (400) or "server error" (500) came down to timing — it was
+   * always a real possibility under a burst of POS deductions, and it only
+   * became reliably reproducible once FR-07's listener added work to the
+   * event loop between the two. Retrying serialises them properly, so the
+   * loser re-reads the committed balance and answers 400 on its own merits.
+   */
   async createWithBalanceUpdate(input: CreateStockTransactionInput): Promise<CreateStockTransactionResult> {
+    const MAX_ATTEMPTS = 4;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.attemptWithBalanceUpdate(input);
+      } catch (error) {
+        const isConflict =
+          error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034';
+        if (!isConflict || attempt >= MAX_ATTEMPTS) throw error;
+        // Short randomised backoff so two deadlocked requests don't simply
+        // collide again in lockstep.
+        await new Promise((resolve) => setTimeout(resolve, attempt * 10 + Math.random() * 20));
+      }
+    }
+  }
+
+  private async attemptWithBalanceUpdate(
+    input: CreateStockTransactionInput,
+  ): Promise<CreateStockTransactionResult> {
     return this.prisma.$transaction(
       async (tx) => {
         // The read below, under Serializable isolation, is what makes this

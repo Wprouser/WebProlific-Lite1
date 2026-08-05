@@ -43,6 +43,9 @@ describe('Tax Rates (FR-04/FR-16 minimal slice) e2e', () => {
     await prisma.transactionLog.deleteMany();
     await prisma.taxRateComponent.deleteMany();
     await prisma.taxRate.deleteMany();
+    // FR-07: a stock movement below minimum raises an Alert, whose itemId
+    // is a real FK — so alerts clear before the items they point at.
+    await prisma.alert.deleteMany();
     await prisma.item.deleteMany();
     await prisma.category.deleteMany();
     await prisma.userAccess.deleteMany();

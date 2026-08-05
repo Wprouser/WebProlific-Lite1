@@ -32,6 +32,9 @@ import { PrismaPurchaseOrderRepository } from './repositories/prisma/prisma-purc
   ],
   // GrnModule (Stage 4) needs this to update POLine.receivedQty and
   // recompute PO status when a GRN is finalized against a PO.
-  exports: [PURCHASE_ORDER_REPOSITORY],
+  // FR-07's "create PO draft" shortcut delegates to the service rather than
+  // assembling a PO itself — currency resolution, tax and totals all live
+  // there, and a second assembly path would drift from this one.
+  exports: [PURCHASE_ORDER_REPOSITORY, PurchaseOrdersService],
 })
 export class PurchaseOrdersModule {}

@@ -59,6 +59,7 @@ model Outlet {
   menuItems           MenuItem[]
   sales               Sale[]
   saleImportBatches   SaleImportBatch[]
+  alerts              Alert[]
 
   @@index([propertyId])
   @@index([chainId])
@@ -356,6 +357,7 @@ model Item {
   stockTransactions StockTransaction[]
   images            ItemImage[]
   recipeLines       RecipeLine[]
+  alerts            Alert[]
 
   @@index([outletId, isActive])
   @@index([categoryId])
@@ -1008,4 +1010,46 @@ model SaleImportRow {
 
   @@unique([batchId, rowNumber])
   @@index([batchId, matchStatus])
+}
+
+// FR-07: Low-Stock & Expiry Alerts
+//
+// Raised by the AlertsService, from two triggers: the FR-02
+// `item.stock.changed` event (low/out of stock) and a nightly scan
+// (expiry). AlertType/AlertStatus are String columns, not Prisma `enum`
+// blocks — see the header note; enforced via src/alerts/constants/enums.ts.
+//
+// onDelete/onUpdate: NoAction for the usual reason — Alert reaches Outlet
+// both directly and via item -> outlet, which SQL Server rejects as
+// "multiple cascade paths".
+model Alert {
+  id       String  @id @default(uuid())
+  outletId String
+  outlet   Outlet  @relation(fields: [outletId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // Nullable per the spec: not every alert is about a specific item.
+  itemId   String?
+  item     Item?   @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  type   String // AlertType: LOW_STOCK | OUT_OF_STOCK | EXPIRY_WARNING
+  status String @default("OPEN") // AlertStatus: OPEN | ACKNOWLEDGED | RESOLVED
+
+  // Human-readable and stored, unlike ActivityLog.description's message-key
+  // approach: an alert's text embeds live numbers ("3.5 kg left, minimum is
+  // 10") that would have to be re-derived at render time from a snapshot
+  // this table doesn't keep. Localizing it properly would mean storing the
+  // numbers as structured metadata — worth doing if alerts ever need to
+  // render in a language other than the raiser's, but not today.
+  message String
+
+  createdAt      DateTime  @default(now())
+  // Not in the spec's model, which has only resolvedAt — added as the
+  // symmetric counterpart, so an acknowledged-but-unresolved alert can show
+  // when someone picked it up rather than only that somebody did.
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+
+  @@index([outletId, status])
+  // Serves the dedup lookup: "is there already an open alert of this type
+  // for this item, raised within the cooldown window".
+  @@index([itemId, type, status, createdAt])
 }

@@ -43,25 +43,10 @@ export const mockChain: ChainFixture = {
   ],
 };
 
-export type AlertSeverity = 'warning' | 'danger';
-
-export interface AlertBarItem {
-  /** Route param for /alerts/:type */
-  type: string;
-  label: string;
-  count: number;
-  severity: AlertSeverity;
-}
-
-/** Sourced from FR-07 (Alerts) + FR-04's variance-approval workflow, per
- * the Global App Chrome spec — mocked since neither backend exists yet. */
-export const mockAlertBar: AlertBarItem[] = [
-  { type: 'low-stock', label: 'Low-Stock Items', count: 3, severity: 'warning' },
-  { type: 'expiry', label: 'Expiry Warnings', count: 2, severity: 'warning' },
-  { type: 'po-approvals', label: 'Pending PO Approvals', count: 3, severity: 'warning' },
-  { type: 'grn-variance', label: 'GRN Variance Awaiting Sign-off', count: 1, severity: 'danger' },
-  { type: 'unacknowledged', label: 'Unacknowledged Alerts', count: 5, severity: 'danger' },
-];
+// mockAlertBar lived here until FR-07 landed. The Global Alert Bar now
+// reads real counts from GET /alerts/summary — which also answers for
+// FR-04's PO-approval and GRN-variance badges — so the fixture is gone
+// rather than left around to be picked up by mistake.
 
 export type SearchEntityType =
   | 'Item'

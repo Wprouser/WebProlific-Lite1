@@ -51,7 +51,33 @@
     "unacknowledged": "Unacknowledged Alerts",
     "none": "No alerts right now",
     "needAttention_one": "{{min}} alert needs attention",
-    "needAttention_other": "{{min}} alerts need attention"
+    "needAttention_other": "{{min}} alerts need attention",
+    "title": "Alerts",
+    "subtitle": "Stock levels and shelf life that need someone to look at them",
+    "loadError": "Couldn't load alerts",
+    "actionError": "Couldn't update that alert",
+    "acknowledge": "Acknowledge",
+    "resolve": "Resolve",
+    "createPoDraft": "Create PO draft",
+    "columns": {
+      "alert": "Alert",
+      "raised": "Raised",
+      "status": "Status"
+    },
+    "type": {
+      "LOW_STOCK": "Low stock",
+      "OUT_OF_STOCK": "Out of stock",
+      "EXPIRY_WARNING": "Expiring"
+    },
+    "status": {
+      "OPEN": "Open",
+      "ACKNOWLEDGED": "Acknowledged",
+      "RESOLVED": "Resolved"
+    },
+    "empty": {
+      "title": "Nothing needs attention",
+      "description": "Alerts appear here when stock runs low or shelf life runs short."
+    }
   },
   "login": {
     "title": "Sign in",

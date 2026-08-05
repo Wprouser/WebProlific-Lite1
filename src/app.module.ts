@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { TenancyModule } from './tenancy/tenancy.module';
@@ -19,6 +20,7 @@ import { InvoiceScansModule } from './invoice-scans/invoice-scans.module';
 import { GrnModule } from './grn/grn.module';
 import { RecipesModule } from './recipes/recipes.module';
 import { SalesModule } from './sales/sales.module';
+import { AlertsModule } from './alerts/alerts.module';
 import { ScopeResolutionGuard } from './tenancy/guards/scope-resolution.guard';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './rbac/guards/roles.guard';
@@ -33,6 +35,10 @@ import { AppController } from './app.controller';
     // EventEmitter2 as a global provider, so no other module needs to
     // import EventEmitterModule itself.
     EventEmitterModule.forRoot(),
+    // FR-07's nightly expiry scan. Registered here rather than inside
+    // AlertsModule so there is exactly one scheduler for the whole app, the
+    // same reasoning as EventEmitterModule above.
+    ScheduleModule.forRoot(),
     PrismaModule,
     TenancyModule,
     AuthModule,
@@ -50,6 +56,7 @@ import { AppController } from './app.controller';
     GrnModule,
     RecipesModule,
     SalesModule,
+    AlertsModule,
   ],
   providers: [
     // Order matters: JwtAuthGuard populates request.user, ScopeResolutionGuard

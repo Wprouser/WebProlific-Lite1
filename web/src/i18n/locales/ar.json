@@ -51,7 +51,33 @@
     "unacknowledged": "تنبيهات غير مطّلع عليها",
     "none": "لا توجد تنبيهات حاليًا",
     "needAttention_one": "يتطلب {{min}} تنبيه انتباهك",
-    "needAttention_other": "تتطلب {{min}} تنبيهات انتباهك"
+    "needAttention_other": "تتطلب {{min}} تنبيهات انتباهك",
+    "title": "التنبيهات",
+    "subtitle": "مستويات المخزون ومدد الصلاحية التي تحتاج إلى مراجعة",
+    "loadError": "تعذّر تحميل التنبيهات",
+    "actionError": "تعذّر تحديث هذا التنبيه",
+    "acknowledge": "إقرار بالاطلاع",
+    "resolve": "إغلاق",
+    "createPoDraft": "إنشاء مسودة أمر شراء",
+    "columns": {
+      "alert": "التنبيه",
+      "raised": "وقت الإصدار",
+      "status": "الحالة"
+    },
+    "type": {
+      "LOW_STOCK": "مخزون منخفض",
+      "OUT_OF_STOCK": "نفد المخزون",
+      "EXPIRY_WARNING": "قارب على الانتهاء"
+    },
+    "status": {
+      "OPEN": "مفتوح",
+      "ACKNOWLEDGED": "تم الاطلاع",
+      "RESOLVED": "مغلق"
+    },
+    "empty": {
+      "title": "لا شيء يحتاج انتباهًا",
+      "description": "تظهر التنبيهات هنا عند انخفاض المخزون أو اقتراب انتهاء الصلاحية."
+    }
   },
   "login": {
     "title": "تسجيل الدخول",

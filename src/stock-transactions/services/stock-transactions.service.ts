@@ -101,6 +101,7 @@ export class StockTransactionsService {
     const event: ItemStockChangedEvent = {
       itemId: item.id,
       outletId: item.outletId,
+      itemName: item.name,
       currentStock: result.item.currentStock,
       minStock: result.item.minStock,
     };
@@ -173,6 +174,7 @@ export class StockTransactionsService {
     const event: ItemStockChangedEvent = {
       itemId: item.id,
       outletId: item.outletId,
+      itemName: item.name,
       currentStock: result.item.currentStock,
       minStock: result.item.minStock,
     };

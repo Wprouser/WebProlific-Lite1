@@ -48,6 +48,9 @@ describe('Item Master (FR-01) e2e', () => {
     await prisma.activityLog.deleteMany();
     await prisma.auditLog.deleteMany();
     await prisma.itemImage.deleteMany();
+    // FR-07: a stock movement below minimum raises an Alert, whose itemId
+    // is a real FK — so alerts clear before the items they point at.
+    await prisma.alert.deleteMany();
     await prisma.stockTransaction.deleteMany();
     await prisma.item.deleteMany();
     await prisma.category.deleteMany();

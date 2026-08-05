@@ -38,6 +38,9 @@ describe('Outlet Currency Settings (FR-16) e2e', () => {
     await prisma.auditLog.deleteMany();
     await prisma.activityLog.deleteMany();
     await prisma.transactionLog.deleteMany();
+    // FR-07: a stock movement below minimum raises an Alert, whose itemId
+    // is a real FK — so alerts clear before the items they point at.
+    await prisma.alert.deleteMany();
     await prisma.stockTransaction.deleteMany();
     await prisma.item.deleteMany();
     await prisma.category.deleteMany();

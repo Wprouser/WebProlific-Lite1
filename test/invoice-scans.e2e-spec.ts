@@ -43,6 +43,9 @@ describe('Invoice Scans (FR-04 / AI-04) e2e', () => {
     await prisma.gRNLine.deleteMany();
     await prisma.gRN.deleteMany();
     await prisma.supplierPriceHistory.deleteMany();
+    // FR-07: a stock movement below minimum raises an Alert, whose itemId
+    // is a real FK — so alerts clear before the items they point at.
+    await prisma.alert.deleteMany();
     await prisma.stockTransaction.deleteMany();
     await prisma.invoiceScan.deleteMany();
     await prisma.supplier.deleteMany();

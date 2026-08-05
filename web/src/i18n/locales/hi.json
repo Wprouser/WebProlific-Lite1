@@ -51,7 +51,33 @@
     "unacknowledged": "अस्वीकृत अलर्ट",
     "none": "अभी कोई अलर्ट नहीं है",
     "needAttention_one": "{{min}} अलर्ट पर ध्यान देने की आवश्यकता है",
-    "needAttention_other": "{{min}} अलर्ट पर ध्यान देने की आवश्यकता है"
+    "needAttention_other": "{{min}} अलर्ट पर ध्यान देने की आवश्यकता है",
+    "title": "अलर्ट",
+    "subtitle": "स्टॉक स्तर और शेल्फ लाइफ जिन पर किसी को ध्यान देना है",
+    "loadError": "अलर्ट लोड नहीं हो सके",
+    "actionError": "यह अलर्ट अपडेट नहीं हो सका",
+    "acknowledge": "देखा",
+    "resolve": "हल करें",
+    "createPoDraft": "PO ड्राफ़्ट बनाएँ",
+    "columns": {
+      "alert": "अलर्ट",
+      "raised": "कब उठा",
+      "status": "स्थिति"
+    },
+    "type": {
+      "LOW_STOCK": "कम स्टॉक",
+      "OUT_OF_STOCK": "स्टॉक खत्म",
+      "EXPIRY_WARNING": "समाप्ति निकट"
+    },
+    "status": {
+      "OPEN": "खुला",
+      "ACKNOWLEDGED": "देखा गया",
+      "RESOLVED": "हल"
+    },
+    "empty": {
+      "title": "कुछ भी ध्यान देने योग्य नहीं",
+      "description": "स्टॉक कम होने या शेल्फ लाइफ घटने पर अलर्ट यहाँ दिखेंगे।"
+    }
   },
   "login": {
     "title": "साइन इन करें",
