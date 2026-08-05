@@ -19,8 +19,20 @@ function resolvedBaseId(unit: ConvertibleUnit): string {
  * see FR-01 spec's "Conversion business rules." Throws rather than
  * producing a silently-wrong number for units from unrelated families
  * (e.g. Kilogram and Litre).
+ *
+ * `decimalPlaces` defaults to 3 because this was written for FR-01/FR-02
+ * stock quantities, which are Decimal(10,3) — every existing caller keeps
+ * exactly the behaviour it had. FR-05's recipe resolution passes 8: rounding
+ * a sub-recipe conversion to 3dp before dividing by the batch yield is
+ * precisely the drift that amendment exists to remove, so it must not be
+ * re-introduced here.
  */
-export function convertUnitQuantity(quantity: string, fromUnit: ConvertibleUnit, toUnit: ConvertibleUnit): string {
+export function convertUnitQuantity(
+  quantity: string,
+  fromUnit: ConvertibleUnit,
+  toUnit: ConvertibleUnit,
+  decimalPlaces = 3,
+): string {
   if (resolvedBaseId(fromUnit) !== resolvedBaseId(toUnit)) {
     throw new Error(
       `Cannot convert between unit ${fromUnit.id} and ${toUnit.id} — they do not share a common base unit`,
@@ -32,5 +44,5 @@ export function convertUnitQuantity(quantity: string, fromUnit: ConvertibleUnit,
   );
   const quantityInTarget = quantityInBase.dividedBy(new Prisma.Decimal(toUnit.conversionFactor ?? '1'));
 
-  return quantityInTarget.toFixed(3);
+  return quantityInTarget.toFixed(decimalPlaces);
 }

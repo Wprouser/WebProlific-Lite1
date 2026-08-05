@@ -1,0 +1,2 @@
+export const MENU_ITEM_REPOSITORY = Symbol('MENU_ITEM_REPOSITORY');
+export const RECIPE_REPOSITORY = Symbol('RECIPE_REPOSITORY');

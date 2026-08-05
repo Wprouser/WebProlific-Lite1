@@ -17,6 +17,7 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module';
 import { InvoiceScansModule } from './invoice-scans/invoice-scans.module';
 import { GrnModule } from './grn/grn.module';
+import { RecipesModule } from './recipes/recipes.module';
 import { ScopeResolutionGuard } from './tenancy/guards/scope-resolution.guard';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './rbac/guards/roles.guard';
@@ -46,6 +47,7 @@ import { AppController } from './app.controller';
     PurchaseOrdersModule,
     InvoiceScansModule,
     GrnModule,
+    RecipesModule,
   ],
   providers: [
     // Order matters: JwtAuthGuard populates request.user, ScopeResolutionGuard

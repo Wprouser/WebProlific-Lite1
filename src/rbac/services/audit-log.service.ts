@@ -32,6 +32,10 @@ function inferCategory(action: string, entityType: string): ActivityCategory {
   if (entityType === 'User') return 'USER_MGMT';
   if (entityType === 'Item' || entityType === 'Category') return 'ITEM';
   if (entityType === 'StockTransaction') return 'STOCK';
+  // FR-05. Both fall under RECIPE rather than ITEM: a menu item is the thing
+  // a recipe hangs off, and the activity feed reads better grouping "created
+  // Chicken Biryani" with "changed its recipe" than with raw-ingredient edits.
+  if (entityType === 'MenuItem' || entityType === 'Recipe') return 'RECIPE';
   // Chain/Property/Outlet (FR-00 org-structure changes) — the spec's
   // ActivityCategory enum has no dedicated org/tenancy bucket, so these
   // fall under SETTINGS as the closest fit (flagged in the FR-18 plan).

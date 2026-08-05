@@ -31,4 +31,27 @@ describe('convertUnitQuantity', () => {
   it('AC: a unit with no base unit (e.g. Box) has no conversion capability — rejected, not silently wrong', () => {
     expect(() => convertUnitQuantity('1', box, kilogram)).toThrow(/do not share a common base unit/);
   });
+
+  // FR-05 yield amendment: the only change to this utility.
+  describe('decimalPlaces parameter', () => {
+    it('AC: defaults to 3, so every existing FR-01/FR-02 caller is unaffected', () => {
+      // Same call shape as every pre-amendment caller — three places, as
+      // Decimal(10,3) stock quantities expect.
+      expect(convertUnitQuantity('1', kilogram, gram)).toBe('1000.000');
+      expect(convertUnitQuantity('1', gram, kilogram)).toBe('0.001');
+    });
+
+    it('honours a higher precision when asked, which is what recipes need', () => {
+      // 1 g expressed in kg is 0.001 — but a third of that is where 3dp
+      // silently collapses to zero and 8dp does not.
+      expect(convertUnitQuantity('0.3333', gram, kilogram, 8)).toBe('0.00033330');
+      expect(convertUnitQuantity('0.3333', gram, kilogram)).toBe('0.000');
+    });
+
+    it('still rejects unrelated families regardless of precision', () => {
+      expect(() => convertUnitQuantity('1', kilogram, litre, 8)).toThrow(
+        /do not share a common base unit/,
+      );
+    });
+  });
 });

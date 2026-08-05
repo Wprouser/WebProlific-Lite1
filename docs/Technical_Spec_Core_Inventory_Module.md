@@ -971,22 +971,48 @@ model MenuItem {
 }
 
 model Recipe {
-  id           String   @id @default(uuid())
-  menuItemId   String
-  version      Int      @default(1)
-  isCurrent    Boolean  @default(true)
-  lines        RecipeLine[]
-  createdAt    DateTime @default(now())
+  id             String   @id @default(uuid())
+  menuItemId     String
+  version        Int      @default(1)
+  isCurrent      Boolean  @default(true)
+  yieldQuantity  Decimal? @db.Decimal(12,4)  // e.g. 2.0000 — how much this recipe produces as a batch, in yieldUnitId. Nullable — see "Yield & Batch Precision" below.
+  yieldUnitId    String?  // FK to UnitOfMeasure (FR-01) — the unit yieldQuantity is expressed in. Both-or-neither with yieldQuantity.
+  lines          RecipeLine[]
+  createdAt      DateTime @default(now())
 }
 
 model RecipeLine {
-  id           String  @id @default(uuid())
-  recipeId     String
-  itemId       String?       // raw material item
-  subRecipeId  String?       // OR a sub-recipe (mutually exclusive with itemId)
-  quantity     Decimal @db.Decimal(10,4)
+  id             String  @id @default(uuid())
+  recipeId       String
+  itemId         String?       // raw material item
+  subRecipeId    String?       // OR a sub-recipe (mutually exclusive with itemId)
+  quantity       Decimal @db.Decimal(10,4)   // for a raw-ingredient line: quantity in the item's own unit, unchanged. For a sub-recipe line: quantity in quantityUnitId (see below), NOT a batch-count multiplier — see "Yield & Batch Precision."
+  quantityUnitId String? // FK to UnitOfMeasure — required for sub-recipe lines (the unit `quantity` is expressed in, e.g. "0.2 kg of sauce"); null for raw-ingredient lines, which use the item's own stocking unit implicitly.
 }
 ```
+
+### Yield & Batch Precision — Sub-Recipe Lines Use a Real Quantity, Not a Batch Multiplier
+
+**The problem this amendment fixes:** a sub-recipe (e.g., a sauce) previously had no way to express *how much* one batch actually produces — a parent recipe could only say "use 0.5 batches of sauce," an abstract fraction with no physical meaning. Since **FR-06 (POS Auto-Deduction) deducts real stock through this exact path on every sale**, an imprecise batch multiplier means every sale of a dish using that sauce silently deducts an imprecise quantity from real ingredient stock — a small, invisible drift that compounds over hundreds or thousands of sales.
+
+**The fix:**
+- `Recipe.yieldQuantity` + `Recipe.yieldUnitId` express what one batch of a recipe actually produces (e.g., "this recipe yields 2 kg"), as a **physical quantity**, not a portion count — physical quantity is unit-convertible and composes correctly through nested sub-recipes; a portion count ("serves 10") cannot be unit-converted and is not used for this purpose. Portion count could be added later as a separate, display-only convenience field, but is explicitly out of scope here — it does not replace `yieldQuantity`.
+- A sub-recipe `RecipeLine.quantity` is now expressed as a **real quantity in `quantityUnitId`** (e.g., "0.2 kg of sauce"), not a batch-count multiplier.
+- **Resolution logic** (in the recipe-tree flattening/costing function): `multiplier = convertUnitQuantity(line.quantity, line.quantityUnitId → subRecipe.yieldUnitId) / subRecipe.yieldQuantity`. Critically, **this division happens once, at full working precision (8 decimal places)** — not pre-rounded by a human entering a multiplier, which is what caused the original imprecision. For example, 0.2 kg ÷ 3 kg = 0.06666667 computed internally, rather than a human pre-rounding to a 4-decimal-place multiplier — this reduces drift from roughly 66.7g per 1,000 portions sold down to under 0.01g.
+- **`convertUnitQuantity` (FR-01's unit conversion utility) gains a precision parameter, defaulting to `3`** so every existing FR-01/FR-02 caller (which expects `Decimal(10,3)` stock-quantity rounding) is completely unaffected. Recipe cost/consumption resolution explicitly passes `8`. This is the only change to that utility — its existing behavior of rejecting conversions between unrelated unit families (e.g., kg ↔ litre) is reused as-is, since it's already the correct check.
+
+**Validation rules:**
+- `yieldQuantity` and `yieldUnitId` are both-or-neither — never one without the other.
+- `yieldQuantity`, if set, must be `> 0`.
+- **A recipe cannot be referenced as a sub-recipe by another recipe unless it has a yield set** — saving a parent recipe that references a yield-less child is rejected with `409`.
+- A sub-recipe line's `quantityUnitId` must share a base unit (per FR-01's Unit of Measure conversion rules) with the referenced sub-recipe's `yieldUnitId` — otherwise `400` (reusing FR-01's existing unrelated-unit-family rejection).
+- Raw-ingredient lines are entirely unchanged by this amendment — `quantity` stays expressed in the item's own stocking unit, no `quantityUnitId` needed.
+
+**Migration — no backfill, nullable columns, explicit legacy flag:** backfilling `yieldQuantity` onto existing recipes is not possible — nothing in historical data records what an existing recipe batch actually produced, and guessing would be worse than acknowledging the gap. Instead:
+1. `yieldQuantity`/`yieldUnitId` are nullable. Existing recipe rows keep the old batch-multiplier interpretation of `RecipeLine.quantity` for sub-recipe lines; the resolution logic branches explicitly on `yieldQuantity == null` to preserve this — **no historical recipe silently re-costs itself** on this migration, which matters because past sales remain pinned to the recipe version active at the time they were made (per the existing `recipeVersionUsed` mechanism).
+2. Going forward, any *new* recipe used as a sub-recipe requires a yield (per the validation rule above) — the old ambiguous batch-multiplier style is closed off for new data, even though old data isn't rewritten.
+3. `GET /menu-items/:id/cost` includes a `usesLegacyBatchMultiplier: true` flag on any menu item whose cost calculation still traverses a yield-less legacy recipe somewhere in its tree — this makes the gap visible and trackable (e.g., surfaced as a worklist of recipes needing a real yield entered) rather than silently persisting forever.
+4. **This schema change lands before FR-06**, but the backfill does not — FR-06 can proceed once the columns exist and new recipes are required to use them; cleaning up legacy yield-less recipes is an ongoing, trackable process, not a blocker.
 
 ### API Endpoints
 | Method | Endpoint | Purpose |
@@ -996,18 +1022,24 @@ model RecipeLine {
 | `GET` | `/menu-items/:id/recipes/current` | Active recipe |
 | `GET` | `/menu-items/:id/recipes/history` | All versions |
 | `PATCH` | `/menu-items/:id/activate` | Mark sellable (validates recipe exists) |
-| `GET` | `/menu-items/:id/cost` | Computed recipe cost from current ingredient prices |
+| `GET` | `/menu-items/:id/cost` | Computed recipe cost from current ingredient prices; includes `usesLegacyBatchMultiplier` flag if applicable |
 
 ### Business Logic
 - Creating a new recipe for a menu item sets the previous one `isCurrent=false` and increments `version` — **never overwrite** an existing recipe row (past sales must remain costed against the version active at time of sale; the `Sale` record stores `recipeVersionUsed`).
 - Each `RecipeLine` must have exactly one of `itemId` or `subRecipeId` set (`400` if both or neither).
-- Recursive sub-recipe resolution: cost/consumption calculation must detect and reject circular sub-recipe references (`A contains B contains A`) at save time.
+- Recursive sub-recipe resolution: cost/consumption calculation must detect and reject circular sub-recipe references (`A contains B contains A`) at save time — this check happens at the menu-item level (not per-recipe-line) since a cycle can only be fully detected by walking the whole tree.
 - `PATCH /menu-items/:id/activate` → `409` if no recipe exists.
+- **Sub-recipe edits do not retroactively affect parent recipes.** Because parent recipes pin a specific version of each sub-recipe they reference, editing a sub-recipe (creating a new version of it) does not automatically update any parent recipe's cost or consumption — the parent continues resolving against the sub-recipe version it originally referenced until the parent itself is edited/re-versioned to point at the newer sub-recipe version. This is correct for historical accuracy (past sales stay costed against what was actually used), but is a real operational behavior worth surfacing in the UI (e.g., a "this sub-recipe has a newer version — update references?" prompt on the sub-recipe's own screen), so it doesn't silently surprise someone who updated a sauce recipe and expected every dish using it to reflect the change immediately.
 
 ### Acceptance Criteria
 - [ ] Editing a recipe creates a new version; old version remains queryable
 - [ ] Circular sub-recipe reference is rejected with a clear error, not an infinite loop
 - [ ] Cannot activate a menu item with zero recipe lines
+- [ ] A recipe with no yield set cannot be referenced as a sub-recipe by another recipe (409)
+- [ ] Sub-recipe quantity resolution computes the yield-based multiplier at full working precision (8dp), not from a pre-rounded human-entered value
+- [ ] A sub-recipe line's unit and its target recipe's yield unit must share a base unit (FR-01), or the save is rejected
+- [ ] Existing (legacy) recipes with no yield continue to resolve using the old batch-multiplier interpretation, unchanged, and are flagged via `usesLegacyBatchMultiplier` on cost lookups
+- [ ] `convertUnitQuantity`'s new precision parameter defaults to 3, leaving every existing FR-01/FR-02 caller's behavior completely unchanged
 
 ---
 
@@ -1623,6 +1655,19 @@ Applied consistently across: alert bar badges, table row status indicators, form
 **4. Dashboard patterns**: two documented layouts, used per context:
 - **Overview dashboard** (e.g., the main Dashboard screen already built) — spacious, focal-point-first, for a manager checking overall health at a glance.
 - **Dense operational dashboard** — a denser variant for screens where an operator scans a lot of live data quickly (e.g., a multi-outlet overview for a Property/Chain-level user, or an active-alerts triage view) — more KPIs visible above the fold, tighter card spacing, using `text-body-dense`. Both share the same tokens/colors; only density differs.
+
+**Dashboard graphical widgets — real data only, no fabricated/out-of-scope charts:**
+
+The overview Dashboard should include the following charts/feeds, all backed by data that genuinely exists in this system:
+
+| Widget | Data source | Notes |
+|---|---|---|
+| **Recent Stock Movements** feed | `StockTransaction` (FR-02), most recent N, live | Icon per transaction type (in/out/wastage/transfer), item name, quantity, who performed it, timestamp — a chronological feed, not a chart |
+| **Item Count by Category** (donut) | `Item` grouped by `Category` (FR-01) | How inventory is distributed across categories |
+| **Purchase Value by Supplier** (contribution chart) | Sum of PO/GRN `totalValue` grouped by `Supplier` (FR-03/FR-04), converted to base currency | Which suppliers account for the most spend |
+| **Purchase Value by Category over time** (stacked bar) | Sum of PO/GRN line totals grouped by Item `Category`, bucketed by month | Spend trend by category |
+
+**Explicit scope boundary — do not build these, even if they appear in reference/competitor dashboards:** Sales Trend, Top Customers, Sales by Location/City/Category, Net Profit, Total Receivable, Total Payable, or any similar revenue/sales-performance widget. This application does not track customer sales, revenue, or accounts receivable/payable — `Item` deliberately has no selling price (FR-01), and there is no sales/POS revenue module in scope. A chart built against data that doesn't exist would show empty, zero, or fabricated numbers, which is worse than not having the chart at all. If a future AI/reporting FR adds real sales-value tracking, these could be revisited then — not now.
 
 **5. Grid/table standards** — a **dense grid variant**, as a sibling to the existing `ResponsiveTable` component (not a replacement — `ResponsiveTable` remains the default for typical lists; the dense variant is opt-in for screens that need it):
 - Compact row height (~32px vs. the default's ~48px), `text-body-dense` throughout.
