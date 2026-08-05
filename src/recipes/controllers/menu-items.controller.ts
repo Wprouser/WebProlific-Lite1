@@ -35,12 +35,27 @@ export class MenuItemsController {
     return menuItem;
   }
 
-  // Both read routes carry FR-06's `needsYield` flag, so the "Needs yield"
-  // badge is available wherever a menu item is rendered without the screen
-  // having to ask a second endpoint per row.
+  // Both read routes carry the `needsYield` flag, so the "Needs yield" badge
+  // is available wherever a menu item is rendered without the screen having
+  // to ask a second endpoint per row.
+  //
+  // `?subRecipeCandidates=true` reshapes the response into the picker's
+  // narrower form rather than being a filter on the same rows: a candidate is
+  // defined by its *recipe* (id, version, yield), which a MenuItem row has no
+  // place to carry.
   @Get()
   list(@Req() request: RequestWithAccess, @Query() query: QueryMenuItemsDto) {
+    if (query.subRecipeCandidates) {
+      return this.recipesService.listSubRecipeCandidates(request, query, query.excludeMenuItemId);
+    }
     return this.recipesService.listMenuItemsWithYieldStatus(request, query);
+  }
+
+  /** FR-05 Screens: the "Used In" tab — every current recipe consuming this
+   * one, and whether it is pinned to a stale version of it. */
+  @Get(':id/used-in')
+  usedIn(@Req() request: RequestWithAccess, @Param('id') id: string) {
+    return this.recipesService.getUsedIn(request, id);
   }
 
   @Get(':id')

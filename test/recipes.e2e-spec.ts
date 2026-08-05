@@ -731,4 +731,360 @@ describe('Recipes / BOM (FR-05) e2e', () => {
     expect(transactions.length).toBeGreaterThan(0);
     expect(transactions.every((t) => t.entityCategory === 'MASTER_DATA')).toBe(true);
   });
+
+  // --------------------------------------------- Recipe builder support (Screens)
+
+  /** A menu item plus a current recipe, created through the real API. */
+  async function dishWithRecipe(
+    ctx: Awaited<ReturnType<typeof outletFixture>>,
+    token: string,
+    name: string,
+    body: Record<string, unknown>,
+  ) {
+    const menuItem = await api()
+      .post('/api/v1/menu-items')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ outletId: ctx.outlet.id, name })
+      .expect(201);
+    const recipe = await api()
+      .post(`/api/v1/menu-items/${menuItem.body.id}/recipes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send(body)
+      .expect(201);
+    return { menuItem: menuItem.body, recipe: recipe.body };
+  }
+
+  it('AC: the sub-recipe picker only offers recipes that already have a yield', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const tomato = await ingredient(ctx, 'Tomato', '3.00');
+
+    const sauce = await dishWithRecipe(ctx, token, 'House Sauce', {
+      yieldQuantity: '2.0000',
+      yieldUnitId: ctx.unit.id,
+      lines: [{ itemId: tomato.id, quantity: '1.5000' }],
+    });
+    const plain = await dishWithRecipe(ctx, token, 'Plain Dish', {
+      lines: [{ itemId: tomato.id, quantity: '0.2000' }],
+    });
+    // No recipe at all — not a candidate either.
+    await api()
+      .post('/api/v1/menu-items')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ outletId: ctx.outlet.id, name: 'Nothing Yet' })
+      .expect(201);
+
+    const candidates = await api()
+      .get('/api/v1/menu-items?subRecipeCandidates=true')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(candidates.body.map((row: { menuItemName: string }) => row.menuItemName)).toEqual([
+      'House Sauce',
+    ]);
+    expect(candidates.body[0]).toMatchObject({
+      menuItemId: sauce.menuItem.id,
+      recipeId: sauce.recipe.id,
+      version: 1,
+      // "2", not "2.0000" — matching how the recipe endpoints have always
+      // stringified this column. See the note in PrismaRecipeRepository.
+      yieldQuantity: '2',
+      yieldUnitId: ctx.unit.id,
+    });
+    // The yield-less dish is exactly what would have produced a 409.
+    expect(candidates.body.map((row: { menuItemId: string }) => row.menuItemId)).not.toContain(
+      plain.menuItem.id,
+    );
+  });
+
+  it('excludes the recipe being edited from its own sub-recipe picker', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const tomato = await ingredient(ctx, 'Tomato', '3.00');
+    const yieldBody = {
+      yieldQuantity: '2.0000',
+      yieldUnitId: ctx.unit.id,
+      lines: [{ itemId: tomato.id, quantity: '1.0000' }],
+    };
+    const sauce = await dishWithRecipe(ctx, token, 'House Sauce', yieldBody);
+    const stock = await dishWithRecipe(ctx, token, 'Veg Stock', yieldBody);
+
+    const candidates = await api()
+      .get(`/api/v1/menu-items?subRecipeCandidates=true&excludeMenuItemId=${stock.menuItem.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(candidates.body.map((row: { menuItemId: string }) => row.menuItemId)).toEqual([
+      sauce.menuItem.id,
+    ]);
+  });
+
+  it('AC: a sub-recipe reports which parents still reference an older version of it', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const tomato = await ingredient(ctx, 'Tomato', '3.00');
+
+    const sauce = await dishWithRecipe(ctx, token, 'House Sauce', {
+      yieldQuantity: '2.0000',
+      yieldUnitId: ctx.unit.id,
+      lines: [{ itemId: tomato.id, quantity: '1.5000' }],
+    });
+    const dish = await dishWithRecipe(ctx, token, 'Biryani', {
+      lines: [{ subRecipeId: sauce.recipe.id, quantity: '0.5000', quantityUnitId: ctx.unit.id }],
+    });
+
+    // Not stale yet — the dish pins the sauce's only version.
+    const before = await api()
+      .get(`/api/v1/menu-items/${sauce.menuItem.id}/used-in`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(before.body).toEqual([
+      expect.objectContaining({
+        parentMenuItemId: dish.menuItem.id,
+        parentMenuItemName: 'Biryani',
+        referencedVersion: 1,
+        isStale: false,
+      }),
+    ]);
+
+    // Re-version the sauce. Per FR-05 this deliberately does NOT propagate.
+    await api()
+      .post(`/api/v1/menu-items/${sauce.menuItem.id}/recipes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        yieldQuantity: '2.0000',
+        yieldUnitId: ctx.unit.id,
+        lines: [{ itemId: tomato.id, quantity: '1.8000' }],
+      })
+      .expect(201);
+
+    const after = await api()
+      .get(`/api/v1/menu-items/${sauce.menuItem.id}/used-in`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(after.body).toEqual([
+      expect.objectContaining({ parentMenuItemId: dish.menuItem.id, referencedVersion: 1, isStale: true }),
+    ]);
+  });
+
+  it('used-in lists only parents still in force, not superseded parent versions', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const tomato = await ingredient(ctx, 'Tomato', '3.00');
+
+    const sauce = await dishWithRecipe(ctx, token, 'House Sauce', {
+      yieldQuantity: '2.0000',
+      yieldUnitId: ctx.unit.id,
+      lines: [{ itemId: tomato.id, quantity: '1.5000' }],
+    });
+    const dish = await dishWithRecipe(ctx, token, 'Biryani', {
+      lines: [{ subRecipeId: sauce.recipe.id, quantity: '0.5000', quantityUnitId: ctx.unit.id }],
+    });
+    // The dish drops the sauce in v2 — nothing sells through the old link.
+    await api()
+      .post(`/api/v1/menu-items/${dish.menuItem.id}/recipes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lines: [{ itemId: tomato.id, quantity: '0.3000' }] })
+      .expect(201);
+
+    const usedIn = await api()
+      .get(`/api/v1/menu-items/${sauce.menuItem.id}/used-in`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(usedIn.body).toEqual([]);
+  });
+
+  it('used-in refuses a menu item in an outlet the caller cannot see', async () => {
+    const ctx = await outletFixture();
+    const other = await outletFixture('Other Restaurant');
+    const { token } = await actor('outsider@example.com', other.outlet.id, 'OUTLET_MANAGER');
+    const tomato = await ingredient(ctx, 'Tomato', '3.00');
+    const owner = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const sauce = await dishWithRecipe(ctx, owner.token, 'House Sauce', {
+      lines: [{ itemId: tomato.id, quantity: '1.0000' }],
+    });
+
+    await api()
+      .get(`/api/v1/menu-items/${sauce.menuItem.id}/used-in`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
+  });
+
+  it('the list carries the current version, and costs only when asked', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const rice = await ingredient(ctx, 'Rice', '10.00');
+    const dish = await dishWithRecipe(ctx, token, 'Biryani', {
+      lines: [{ itemId: rice.id, quantity: '0.5000' }],
+    });
+    await api()
+      .post(`/api/v1/menu-items/${dish.menuItem.id}/recipes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lines: [{ itemId: rice.id, quantity: '0.6000' }] })
+      .expect(201);
+
+    const plain = await api()
+      .get('/api/v1/menu-items')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(plain.body[0]).toMatchObject({ currentVersion: 2, totalCost: null });
+
+    const costed = await api()
+      .get('/api/v1/menu-items?includeCost=true')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    // v2: 0.6 kg x 10.00
+    expect(costed.body[0]).toMatchObject({
+      currentVersion: 2,
+      totalCost: '6.00',
+      costUsesLegacyRecipe: false,
+    });
+  });
+
+  it('flags a dish whose cost traverses a legacy recipe, separately from the recipe needing the yield', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const tomato = await ingredient(ctx, 'Tomato', '3.00');
+
+    // Legacy shape, only creatable out of band now.
+    const sauceMenuItem = await prisma.menuItem.create({
+      data: { outletId: ctx.outlet.id, name: 'Legacy Sauce' },
+    });
+    const sauceRecipe = await prisma.recipe.create({
+      data: {
+        menuItemId: sauceMenuItem.id,
+        version: 1,
+        isCurrent: true,
+        lines: { create: [{ itemId: tomato.id, quantity: '0.5000' }] },
+      },
+    });
+    const dishMenuItem = await prisma.menuItem.create({
+      data: { outletId: ctx.outlet.id, name: 'Biryani' },
+    });
+    await prisma.recipe.create({
+      data: {
+        menuItemId: dishMenuItem.id,
+        version: 1,
+        isCurrent: true,
+        lines: { create: [{ subRecipeId: sauceRecipe.id, quantity: '2.0000' }] },
+      },
+    });
+
+    const list = await api()
+      .get('/api/v1/menu-items?includeCost=true')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const byId = (id: string) => list.body.find((row: { id: string }) => row.id === id);
+
+    // The sauce is what needs fixing...
+    expect(byId(sauceMenuItem.id)).toMatchObject({ needsYield: true, costUsesLegacyRecipe: false });
+    // ...while the dish is merely the one whose number is soft because of it.
+    expect(byId(dishMenuItem.id)).toMatchObject({ needsYield: false, costUsesLegacyRecipe: true });
+  });
+
+  // ------------------------------------------ optimistic concurrency on save
+
+  it('AC: a save based on a superseded version is rejected, not silently applied', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const rice = await ingredient(ctx, 'Rice', '10.00');
+    const dish = await dishWithRecipe(ctx, token, 'Biryani', {
+      lines: [{ itemId: rice.id, quantity: '0.2000' }],
+    });
+
+    // Two people open version 1. The first saves.
+    await api()
+      .post(`/api/v1/menu-items/${dish.menuItem.id}/recipes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ basedOnVersion: 1, lines: [{ itemId: rice.id, quantity: '0.3000' }] })
+      .expect(201);
+
+    // The second still thinks version 1 is current.
+    const rejected = await api()
+      .post(`/api/v1/menu-items/${dish.menuItem.id}/recipes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ basedOnVersion: 1, lines: [{ itemId: rice.id, quantity: '0.9000' }] })
+      .expect(409);
+    expect(rejected.body.message).toMatch(/now at version 2.*based on version 1/s);
+
+    // The first person's work is intact and still current — the whole point.
+    const current = await api()
+      .get(`/api/v1/menu-items/${dish.menuItem.id}/recipes/current`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(current.body.version).toBe(2);
+    expect(current.body.lines[0].quantity).toBe('0.3');
+
+    // And no version 3 was created by the rejected save.
+    const history = await api()
+      .get(`/api/v1/menu-items/${dish.menuItem.id}/recipes/history`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(history.body).toHaveLength(2);
+  });
+
+  it('accepts a save that names the version actually in force', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const rice = await ingredient(ctx, 'Rice', '10.00');
+    const dish = await dishWithRecipe(ctx, token, 'Biryani', {
+      lines: [{ itemId: rice.id, quantity: '0.2000' }],
+    });
+
+    const saved = await api()
+      .post(`/api/v1/menu-items/${dish.menuItem.id}/recipes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ basedOnVersion: 1, lines: [{ itemId: rice.id, quantity: '0.3000' }] })
+      .expect(201);
+    expect(saved.body.version).toBe(2);
+  });
+
+  it('rejects a first-recipe save when someone else got there first', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const rice = await ingredient(ctx, 'Rice', '10.00');
+    const dish = await dishWithRecipe(ctx, token, 'Biryani', {
+      lines: [{ itemId: rice.id, quantity: '0.2000' }],
+    });
+
+    // basedOnVersion 0 means "there was no recipe when I opened this".
+    await api()
+      .post(`/api/v1/menu-items/${dish.menuItem.id}/recipes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ basedOnVersion: 0, lines: [{ itemId: rice.id, quantity: '0.4000' }] })
+      .expect(409);
+  });
+
+  it('omitting the precondition still works, so existing API callers are unaffected', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const rice = await ingredient(ctx, 'Rice', '10.00');
+    const dish = await dishWithRecipe(ctx, token, 'Biryani', {
+      lines: [{ itemId: rice.id, quantity: '0.2000' }],
+    });
+
+    const saved = await api()
+      .post(`/api/v1/menu-items/${dish.menuItem.id}/recipes`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lines: [{ itemId: rice.id, quantity: '0.3000' }] })
+      .expect(201);
+    expect(saved.body.version).toBe(2);
+  });
+
+  it('rejects a negative or non-integer precondition at the DTO layer', async () => {
+    const ctx = await outletFixture();
+    const { token } = await actor('chef@example.com', ctx.outlet.id, 'OUTLET_MANAGER');
+    const rice = await ingredient(ctx, 'Rice', '10.00');
+    const dish = await dishWithRecipe(ctx, token, 'Biryani', {
+      lines: [{ itemId: rice.id, quantity: '0.2000' }],
+    });
+
+    for (const basedOnVersion of [-1, 1.5]) {
+      await api()
+        .post(`/api/v1/menu-items/${dish.menuItem.id}/recipes`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ basedOnVersion, lines: [{ itemId: rice.id, quantity: '0.3000' }] })
+        .expect(400);
+    }
+  });
 });

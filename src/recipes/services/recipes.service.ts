@@ -7,7 +7,11 @@ import {
 } from '@nestjs/common';
 import { MENU_ITEM_REPOSITORY, RECIPE_REPOSITORY } from '../repositories/tokens';
 import { MenuItemRepository } from '../repositories/menu-item.repository';
-import { RecipeRepository, CreateRecipeLineInput } from '../repositories/recipe.repository';
+import {
+  RecipeRepository,
+  CreateRecipeLineInput,
+  RecipeVersionConflictError,
+} from '../repositories/recipe.repository';
 import { ITEM_REPOSITORY, UNIT_OF_MEASURE_REPOSITORY } from '../../items/repositories/tokens';
 import { ItemRepository } from '../../items/repositories/item.repository';
 import { UnitOfMeasureRepository } from '../../items/repositories/unit-of-measure.repository';
@@ -21,6 +25,7 @@ import { CreateRecipeDto } from '../dto/create-recipe.dto';
 import { QueryMenuItemsDto } from '../dto/query-menu-items.dto';
 import { RequestWithAccess } from '../../tenancy/types/request-with-access';
 import { assertOutletAccess } from '../../tenancy/access.util';
+import { RecipeCostService } from './recipe-cost.service';
 import {
   assertNoCycles,
   CircularRecipeError,
@@ -42,6 +47,46 @@ export interface MenuItemWithYieldStatus extends MenuItem {
    * sub-recipe but has no yield — so any sale deducting through it is
    * approximate. Drives the "Needs yield" badge. */
   needsYield: boolean;
+  /** Null when no recipe exists yet. */
+  currentVersion: number | null;
+}
+
+/**
+ * List row as the screens consume it.
+ *
+ * `needsYield` and `costUsesLegacyRecipe` are deliberately separate, because
+ * they mark different rows and mean different things. `needsYield` is on the
+ * recipe that is *missing* a yield — the one row a user opens to fix the
+ * problem. `costUsesLegacyRecipe` is on every dish whose cost happens to
+ * traverse such a recipe — informative ("this number is soft"), but not
+ * itself actionable. Collapsing them into one badge would either hide the
+ * fix or scatter it across every dish that inherited the symptom.
+ */
+export interface MenuItemListRow extends MenuItemWithYieldStatus {
+  /** Present only when the caller asked for costs — it is a full recipe-tree
+   * resolution per row, not a column read. */
+  totalCost: string | null;
+  costUsesLegacyRecipe: boolean;
+}
+
+export interface SubRecipeCandidate {
+  menuItemId: string;
+  menuItemName: string;
+  recipeId: string;
+  version: number;
+  /** Non-null by construction — a candidate without a yield isn't one. */
+  yieldQuantity: string;
+  yieldUnitId: string;
+}
+
+export interface UsedInEntry {
+  parentMenuItemId: string;
+  parentMenuItemName: string;
+  parentRecipeId: string;
+  parentVersion: number;
+  referencedVersion: number;
+  /** The parent pins an older version of this recipe than the current one. */
+  isStale: boolean;
 }
 
 @Injectable()
@@ -51,6 +96,9 @@ export class RecipesService {
     @Inject(RECIPE_REPOSITORY) private readonly recipeRepository: RecipeRepository,
     @Inject(ITEM_REPOSITORY) private readonly itemRepository: ItemRepository,
     @Inject(UNIT_OF_MEASURE_REPOSITORY) private readonly unitRepository: UnitOfMeasureRepository,
+    // One-directional: RecipeCostService knows nothing about this service, so
+    // there is no DI cycle to forwardRef around.
+    private readonly recipeCostService: RecipeCostService,
   ) {}
 
   // ---------------------------------------------------------------- menu items
@@ -96,12 +144,41 @@ export class RecipesService {
   async listMenuItemsWithYieldStatus(
     request: RequestWithAccess,
     query: QueryMenuItemsDto,
-  ): Promise<MenuItemWithYieldStatus[]> {
+  ): Promise<MenuItemListRow[]> {
     const menuItems = await this.listMenuItems(request, query);
-    const needsYield = new Set(
-      await this.menuItemRepository.findIdsNeedingYield(menuItems.map((menuItem) => menuItem.id)),
-    );
-    return menuItems.map((menuItem) => ({ ...menuItem, needsYield: needsYield.has(menuItem.id) }));
+    const ids = menuItems.map((menuItem) => menuItem.id);
+    // Both resolved for the whole page in one call each, not per row.
+    const needsYield = new Set(await this.menuItemRepository.findIdsNeedingYield(ids));
+    const currents = await this.recipeRepository.findCurrentVersions(ids);
+
+    const rows: MenuItemListRow[] = [];
+    for (const menuItem of menuItems) {
+      const row: MenuItemListRow = {
+        ...menuItem,
+        needsYield: needsYield.has(menuItem.id),
+        currentVersion: currents.get(menuItem.id)?.version ?? null,
+        totalCost: null,
+        costUsesLegacyRecipe: false,
+      };
+
+      // Opt-in, because this is one full recipe-tree resolution per row —
+      // an O(rows x tree depth) cost, not a column read. The list screen asks
+      // for it explicitly; nothing else should pay for it by default.
+      if (query.includeCost && row.currentVersion !== null) {
+        try {
+          const cost = await this.recipeCostService.costRecipeVersion(menuItem.id);
+          row.totalCost = cost.totalCost;
+          row.costUsesLegacyRecipe = cost.usesLegacyBatchMultiplier;
+        } catch {
+          // A recipe that can't be costed (a deleted ingredient, a stored
+          // cycle) must not blank the whole list — the row just shows no
+          // cost, and the detail screen reports why.
+          row.totalCost = null;
+        }
+      }
+      rows.push(row);
+    }
+    return rows;
   }
 
   async getMenuItemWithYieldStatus(
@@ -110,7 +187,74 @@ export class RecipesService {
   ): Promise<MenuItemWithYieldStatus> {
     const menuItem = await this.getMenuItem(request, id);
     const needsYield = await this.menuItemRepository.findIdsNeedingYield([id]);
-    return { ...menuItem, needsYield: needsYield.length > 0 };
+    const current = (await this.recipeRepository.findCurrentVersions([id])).get(id);
+    return {
+      ...menuItem,
+      needsYield: needsYield.length > 0,
+      currentVersion: current?.version ?? null,
+    };
+  }
+
+  /**
+   * Menu items whose *current* recipe has a yield — the only ones another
+   * recipe may legally reference as a sub-recipe.
+   *
+   * The picker on the builder screen is fed from here rather than from the
+   * full list, so a yield-less recipe is never selectable in the first place.
+   * That turns the spec's 409 into something the user cannot trigger, instead
+   * of an error they have to read and undo. The 409 stays in place as the
+   * server-side guarantee.
+   */
+  async listSubRecipeCandidates(
+    request: RequestWithAccess,
+    query: QueryMenuItemsDto,
+    excludeMenuItemId?: string,
+  ): Promise<SubRecipeCandidate[]> {
+    const menuItems = await this.listMenuItems(request, query);
+    const currents = await this.recipeRepository.findCurrentVersions(
+      menuItems.map((menuItem) => menuItem.id),
+    );
+
+    const candidates: SubRecipeCandidate[] = [];
+    for (const menuItem of menuItems) {
+      // A recipe can't contain itself, and offering it would only produce the
+      // circular-reference rejection.
+      if (menuItem.id === excludeMenuItemId) continue;
+      const current = currents.get(menuItem.id);
+      if (!current || current.yieldQuantity === null || current.yieldUnitId === null) continue;
+      candidates.push({
+        menuItemId: menuItem.id,
+        menuItemName: menuItem.name,
+        recipeId: current.recipeId,
+        version: current.version,
+        yieldQuantity: current.yieldQuantity,
+        yieldUnitId: current.yieldUnitId,
+      });
+    }
+    return candidates;
+  }
+
+  /**
+   * The reverse lookup behind the "Used In" tab: which recipes currently
+   * consume this one, and whether each is pinned to a stale version of it.
+   *
+   * `isStale` is the visible form of FR-05's non-propagation rule — a parent
+   * pins a specific sub-recipe version and keeps resolving against it until
+   * the parent itself is re-versioned. Correct for historical accuracy, and
+   * exactly the kind of thing that surprises someone who just updated a base
+   * sauce and expected every dish to follow.
+   */
+  async getUsedIn(request: RequestWithAccess, menuItemId: string): Promise<UsedInEntry[]> {
+    await this.getMenuItem(request, menuItemId);
+    const currentVersion = (await this.recipeRepository.findCurrentVersions([menuItemId])).get(
+      menuItemId,
+    )?.version;
+
+    const references = await this.recipeRepository.findReferencingRecipes(menuItemId);
+    return references.map((reference) => ({
+      ...reference,
+      isStale: currentVersion !== undefined && reference.referencedVersion !== currentVersion,
+    }));
   }
 
   async updateMenuItem(
@@ -174,15 +318,58 @@ export class RecipesService {
 
     const { yieldQuantity, yieldUnitId } = await this.validateYield(menuItem, dto);
     const lines = await this.validateLines(menuItem, dto);
-    const nextVersion = (await this.recipeRepository.maxVersionForMenuItem(menuItemId)) + 1;
 
-    return this.recipeRepository.createVersion({
-      menuItemId,
-      version: nextVersion,
-      yieldQuantity,
-      yieldUnitId,
-      lines,
-    });
+    const latestVersion = await this.recipeRepository.maxVersionForMenuItem(menuItemId);
+    this.assertNotStale(dto.basedOnVersion, latestVersion);
+    const nextVersion = latestVersion + 1;
+
+    try {
+      return await this.recipeRepository.createVersion({
+        menuItemId,
+        version: nextVersion,
+        yieldQuantity,
+        yieldUnitId,
+        lines,
+      });
+    } catch (error) {
+      // Lost the race after passing the check above. Same situation from the
+      // user's side, so the same answer.
+      if (error instanceof RecipeVersionConflictError) {
+        throw new ConflictException(
+          'Someone else saved a new version of this recipe while you were saving. ' +
+            'Reload to see the current version, then reapply your changes.',
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Optimistic concurrency check for the create-or-replace save.
+   *
+   * Rejects when someone else has versioned this recipe since the caller
+   * loaded it. Nothing is ever overwritten — versions are append-only — but
+   * without this check the later save still wins in the only sense that
+   * matters: it becomes the current version, quietly discarding a colleague's
+   * work that the saver never saw. A 409 with both version numbers is the
+   * honest answer, since only a human can merge two divergent recipes.
+   *
+   * Deliberately compares against the *max* version rather than the current
+   * one: they are the same today, and if they ever diverge the max is the
+   * conservative choice — it still catches a version the caller never saw.
+   */
+  private assertNotStale(basedOnVersion: number | undefined, latestVersion: number): void {
+    if (basedOnVersion === undefined) return; // precondition not supplied — see the DTO.
+    if (basedOnVersion === latestVersion) return;
+
+    throw new ConflictException(
+      latestVersion === 0
+        ? 'This menu item has no recipe yet, but your edit was based on version ' +
+          `${basedOnVersion}. Reload and try again.`
+        : `This recipe has changed since you opened it — it is now at version ${latestVersion}, ` +
+          `but your edit was based on version ${basedOnVersion}. Reload to see the current version, ` +
+          'then reapply your changes.',
+    );
   }
 
   /**

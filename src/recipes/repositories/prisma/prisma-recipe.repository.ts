@@ -2,7 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, Recipe as PrismaRecipe, RecipeLine as PrismaRecipeLine } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { Recipe, RecipeLine } from '../../domain/recipe.entity';
-import { CreateRecipeInput, RecipeRepository } from '../recipe.repository';
+import {
+  CreateRecipeInput,
+  CurrentRecipeSummary,
+  RecipeRepository,
+  RecipeVersionConflictError,
+  SubRecipeReference,
+} from '../recipe.repository';
 
 function lineToDomain(row: PrismaRecipeLine): RecipeLine {
   return {
@@ -35,6 +41,21 @@ export class PrismaRecipeRepository implements RecipeRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async createVersion(data: CreateRecipeInput): Promise<Recipe> {
+    try {
+      return await this.insertVersion(data);
+    } catch (error) {
+      // P2002 on [menuItemId, version]: another save inserted this version
+      // number between the service's staleness check and this write. The
+      // unique constraint is what actually makes that impossible to get
+      // wrong; this just gives it a name the service can translate.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new RecipeVersionConflictError(data.menuItemId, data.version);
+      }
+      throw error;
+    }
+  }
+
+  private async insertVersion(data: CreateRecipeInput): Promise<Recipe> {
     // One transaction: demoting the old current version and inserting the new
     // one must not be separable, or a crash between them leaves a menu item
     // with either two current recipes or none.
@@ -133,5 +154,72 @@ export class PrismaRecipeRepository implements RecipeRepository {
       select: { id: true, menuItemId: true },
     });
     return new Map(rows.map((row) => [row.id, row.menuItemId]));
+  }
+
+  async findReferencingRecipes(menuItemId: string): Promise<SubRecipeReference[]> {
+    const lines = await this.prisma.recipeLine.findMany({
+      where: {
+        // The line points at any version of this menu item's recipe...
+        subRecipe: { menuItemId },
+        // ...and the recipe holding that line is one still in force.
+        recipe: { isCurrent: true },
+      },
+      select: {
+        recipe: {
+          select: {
+            id: true,
+            version: true,
+            menuItemId: true,
+            menuItem: { select: { name: true } },
+          },
+        },
+        subRecipe: { select: { version: true } },
+      },
+    });
+
+    // A parent can reference the same sub-recipe on several lines (two
+    // different quantities of the same sauce); the tab lists parents, not
+    // lines, so those collapse to one entry.
+    const byParent = new Map<string, SubRecipeReference>();
+    for (const line of lines) {
+      if (!line.subRecipe) continue;
+      const key = `${line.recipe.id}:${line.subRecipe.version}`;
+      if (byParent.has(key)) continue;
+      byParent.set(key, {
+        parentMenuItemId: line.recipe.menuItemId,
+        parentMenuItemName: line.recipe.menuItem.name,
+        parentRecipeId: line.recipe.id,
+        parentVersion: line.recipe.version,
+        referencedVersion: line.subRecipe.version,
+      });
+    }
+    return [...byParent.values()].sort((a, b) =>
+      a.parentMenuItemName.localeCompare(b.parentMenuItemName),
+    );
+  }
+
+  async findCurrentVersions(menuItemIds: string[]): Promise<Map<string, CurrentRecipeSummary>> {
+    if (menuItemIds.length === 0) return new Map();
+    const rows = await this.prisma.recipe.findMany({
+      where: { menuItemId: { in: menuItemIds }, isCurrent: true },
+      select: {
+        id: true,
+        menuItemId: true,
+        version: true,
+        yieldQuantity: true,
+        yieldUnitId: true,
+      },
+    });
+    return new Map(
+      rows.map((row) => [
+        row.menuItemId,
+        {
+          recipeId: row.id,
+          version: row.version,
+          yieldQuantity: row.yieldQuantity === null ? null : row.yieldQuantity.toString(),
+          yieldUnitId: row.yieldUnitId,
+        },
+      ]),
+    );
   }
 }

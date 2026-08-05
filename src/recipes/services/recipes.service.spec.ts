@@ -3,7 +3,14 @@ import { RecipesService } from './recipes.service';
 import { MenuItem } from '../domain/menu-item.entity';
 import { Recipe, RecipeLine } from '../domain/recipe.entity';
 import { MenuItemRepository } from '../repositories/menu-item.repository';
-import { CreateRecipeInput, RecipeRepository } from '../repositories/recipe.repository';
+import {
+  CreateRecipeInput,
+  CurrentRecipeSummary,
+  RecipeRepository,
+  RecipeVersionConflictError,
+  SubRecipeReference,
+} from '../repositories/recipe.repository';
+import { RecipeCostService } from './recipe-cost.service';
 import { ItemRepository } from '../../items/repositories/item.repository';
 import { Item } from '../../items/domain/item.entity';
 import { UnitOfMeasureRepository } from '../../items/repositories/unit-of-measure.repository';
@@ -141,6 +148,41 @@ class FakeRecipes implements RecipeRepository {
     }
     return map;
   }
+  async findReferencingRecipes(menuItemId: string): Promise<SubRecipeReference[]> {
+    const targetVersions = new Map(
+      [...this.rows.values()].filter((r) => r.menuItemId === menuItemId).map((r) => [r.id, r.version]),
+    );
+    const references: SubRecipeReference[] = [];
+    for (const parent of this.rows.values()) {
+      if (!parent.isCurrent) continue;
+      for (const line of parent.lines) {
+        const referencedVersion = line.subRecipeId ? targetVersions.get(line.subRecipeId) : undefined;
+        if (referencedVersion === undefined) continue;
+        if (references.some((r) => r.parentRecipeId === parent.id)) continue;
+        references.push({
+          parentMenuItemId: parent.menuItemId,
+          parentMenuItemName: `Menu ${parent.menuItemId}`,
+          parentRecipeId: parent.id,
+          parentVersion: parent.version,
+          referencedVersion,
+        });
+      }
+    }
+    return references;
+  }
+  async findCurrentVersions(menuItemIds: string[]): Promise<Map<string, CurrentRecipeSummary>> {
+    const map = new Map<string, CurrentRecipeSummary>();
+    for (const row of this.rows.values()) {
+      if (!row.isCurrent || !menuItemIds.includes(row.menuItemId)) continue;
+      map.set(row.menuItemId, {
+        recipeId: row.id,
+        version: row.version,
+        yieldQuantity: row.yieldQuantity,
+        yieldUnitId: row.yieldUnitId,
+      });
+    }
+    return map;
+  }
 }
 
 class FakeItems implements Partial<ItemRepository> {
@@ -173,13 +215,17 @@ function build() {
   const recipes = new FakeRecipes();
   const items = new FakeItems();
   const units = new FakeUnits();
+  // Only exercised by listMenuItemsWithYieldStatus's opt-in cost path, which
+  // has its own coverage in recipe-cost.service.spec.ts and the e2e suite.
+  const recipeCost = { costRecipeVersion: jest.fn() } as unknown as RecipeCostService;
   const service = new RecipesService(
     menuItems,
     recipes,
     items as unknown as ItemRepository,
     units as unknown as UnitOfMeasureRepository,
+    recipeCost,
   );
-  return { service, menuItems, recipes, items, units };
+  return { service, menuItems, recipes, items, units, recipeCost };
 }
 
 describe('RecipesService — versioning', () => {
@@ -632,5 +678,223 @@ describe('RecipesService — yield validation (FR-05 amendment)', () => {
 
     expect(recipe.yieldQuantity).toBeNull();
     expect(recipe.yieldUnitId).toBeNull();
+  });
+});
+
+describe('RecipesService — Recipe builder support (FR-05 Screens)', () => {
+  it('AC: the sub-recipe picker only offers recipes that already have a yield', async () => {
+    const { service, menuItems, recipes } = build();
+    menuItems.seed({ id: 'mi-sauce', name: 'House Sauce' });
+    menuItems.seed({ id: 'mi-stock', name: 'Legacy Stock' });
+    menuItems.seed({ id: 'mi-none', name: 'No Recipe Yet' });
+    recipes.seed({ id: 'r-sauce', menuItemId: 'mi-sauce', yieldQuantity: '2', yieldUnitId: 'kg' });
+    recipes.seed({ id: 'r-stock', menuItemId: 'mi-stock' }); // legacy: no yield
+
+    const candidates = await service.listSubRecipeCandidates(requestFor(), {});
+
+    expect(candidates.map((candidate) => candidate.menuItemId)).toEqual(['mi-sauce']);
+    expect(candidates[0]).toMatchObject({ recipeId: 'r-sauce', yieldQuantity: '2', yieldUnitId: 'kg' });
+  });
+
+  it('never offers the recipe being edited as its own sub-recipe', async () => {
+    const { service, menuItems, recipes } = build();
+    menuItems.seed({ id: 'mi-sauce', name: 'House Sauce' });
+    menuItems.seed({ id: 'mi-dish', name: 'Dish' });
+    recipes.seed({ id: 'r-sauce', menuItemId: 'mi-sauce', yieldQuantity: '2', yieldUnitId: 'kg' });
+    recipes.seed({ id: 'r-dish', menuItemId: 'mi-dish', yieldQuantity: '1', yieldUnitId: 'kg' });
+
+    const candidates = await service.listSubRecipeCandidates(requestFor(), {}, 'mi-dish');
+    expect(candidates.map((candidate) => candidate.menuItemId)).toEqual(['mi-sauce']);
+  });
+
+  it('offers only the current version, so a superseded yield-less version cannot be picked', async () => {
+    const { service, menuItems, recipes } = build();
+    menuItems.seed({ id: 'mi-sauce', name: 'House Sauce' });
+    recipes.seed({ id: 'r-v1', menuItemId: 'mi-sauce', version: 1, isCurrent: false });
+    recipes.seed({
+      id: 'r-v2',
+      menuItemId: 'mi-sauce',
+      version: 2,
+      isCurrent: true,
+      yieldQuantity: '2',
+      yieldUnitId: 'kg',
+    });
+
+    const candidates = await service.listSubRecipeCandidates(requestFor(), {});
+    expect(candidates).toEqual([expect.objectContaining({ recipeId: 'r-v2', version: 2 })]);
+  });
+
+  it('AC: reports which recipes still reference an older version of this one', async () => {
+    const { service, menuItems, recipes } = build();
+    menuItems.seed({ id: 'mi-sauce', name: 'House Sauce' });
+    menuItems.seed({ id: 'mi-dish', name: 'Biryani' });
+    // The sauce has moved on to v2; the dish still pins v1.
+    recipes.seed({ id: 'r-sauce-v1', menuItemId: 'mi-sauce', version: 1, isCurrent: false });
+    recipes.seed({ id: 'r-sauce-v2', menuItemId: 'mi-sauce', version: 2, isCurrent: true });
+    recipes.seed({
+      id: 'r-dish',
+      menuItemId: 'mi-dish',
+      lines: [
+        { id: 'l1', recipeId: 'r-dish', itemId: null, subRecipeId: 'r-sauce-v1', quantity: '1', quantityUnitId: 'kg' },
+      ],
+    });
+
+    const usedIn = await service.getUsedIn(requestFor(), 'mi-sauce');
+    expect(usedIn).toEqual([
+      expect.objectContaining({ parentMenuItemId: 'mi-dish', referencedVersion: 1, isStale: true }),
+    ]);
+  });
+
+  it('does not call a parent stale when it already pins the current version', async () => {
+    const { service, menuItems, recipes } = build();
+    menuItems.seed({ id: 'mi-sauce', name: 'House Sauce' });
+    menuItems.seed({ id: 'mi-dish', name: 'Biryani' });
+    recipes.seed({ id: 'r-sauce-v1', menuItemId: 'mi-sauce', version: 1, isCurrent: true });
+    recipes.seed({
+      id: 'r-dish',
+      menuItemId: 'mi-dish',
+      lines: [
+        { id: 'l1', recipeId: 'r-dish', itemId: null, subRecipeId: 'r-sauce-v1', quantity: '1', quantityUnitId: 'kg' },
+      ],
+    });
+
+    const usedIn = await service.getUsedIn(requestFor(), 'mi-sauce');
+    expect(usedIn).toEqual([expect.objectContaining({ isStale: false })]);
+  });
+
+  it('reports nothing for a recipe no one consumes', async () => {
+    const { service, menuItems, recipes } = build();
+    menuItems.seed({ id: 'mi-sauce' });
+    recipes.seed({ id: 'r-sauce', menuItemId: 'mi-sauce' });
+    await expect(service.getUsedIn(requestFor(), 'mi-sauce')).resolves.toEqual([]);
+  });
+
+  it('lists the current version per row without costing anything by default', async () => {
+    const { service, menuItems, recipes, recipeCost } = build();
+    menuItems.seed({ id: 'mi-1', name: 'Biryani' });
+    recipes.seed({ id: 'r-1', menuItemId: 'mi-1', version: 3 });
+
+    const rows = await service.listMenuItemsWithYieldStatus(requestFor(), {});
+
+    expect(rows[0]).toMatchObject({ currentVersion: 3, totalCost: null, costUsesLegacyRecipe: false });
+    expect(recipeCost.costRecipeVersion).not.toHaveBeenCalled();
+  });
+
+  it('costs each row only when asked, and flags a legacy-traversing cost separately', async () => {
+    const { service, menuItems, recipes, recipeCost } = build();
+    menuItems.seed({ id: 'mi-1', name: 'Biryani' });
+    recipes.seed({ id: 'r-1', menuItemId: 'mi-1', version: 1 });
+    (recipeCost.costRecipeVersion as jest.Mock).mockResolvedValue({
+      totalCost: '12.50',
+      usesLegacyBatchMultiplier: true,
+    });
+
+    const rows = await service.listMenuItemsWithYieldStatus(requestFor(), { includeCost: true });
+
+    expect(rows[0]).toMatchObject({ totalCost: '12.50', costUsesLegacyRecipe: true });
+  });
+
+  it('a row that cannot be costed shows no cost rather than blanking the list', async () => {
+    const { service, menuItems, recipes, recipeCost } = build();
+    menuItems.seed({ id: 'mi-1', name: 'Biryani' });
+    recipes.seed({ id: 'r-1', menuItemId: 'mi-1', version: 1 });
+    (recipeCost.costRecipeVersion as jest.Mock).mockRejectedValue(new Error('ingredient deleted'));
+
+    const rows = await service.listMenuItemsWithYieldStatus(requestFor(), { includeCost: true });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].totalCost).toBeNull();
+  });
+
+  it('skips costing a menu item that has no recipe at all', async () => {
+    const { service, menuItems, recipeCost } = build();
+    menuItems.seed({ id: 'mi-1', name: 'No Recipe Yet' });
+
+    const rows = await service.listMenuItemsWithYieldStatus(requestFor(), { includeCost: true });
+    expect(rows[0]).toMatchObject({ currentVersion: null, totalCost: null });
+    expect(recipeCost.costRecipeVersion).not.toHaveBeenCalled();
+  });
+});
+
+describe('RecipesService — optimistic concurrency on save', () => {
+  function seedDish() {
+    const built = build();
+    built.menuItems.seed({ id: 'mi-1' });
+    built.items.seed('item-a');
+    return built;
+  }
+
+  const validLines = [{ itemId: 'item-a', quantity: '1.0000' }];
+
+  it('accepts a save based on the version that is actually current', async () => {
+    const { service, recipes } = seedDish();
+    recipes.seed({ id: 'r-1', menuItemId: 'mi-1', version: 1 });
+
+    const saved = await service.createRecipe(requestFor(), 'mi-1', {
+      basedOnVersion: 1,
+      lines: validLines,
+    });
+    expect(saved.version).toBe(2);
+  });
+
+  it('rejects a save based on a version someone has already superseded', async () => {
+    const { service, recipes } = seedDish();
+    recipes.seed({ id: 'r-1', menuItemId: 'mi-1', version: 1, isCurrent: false });
+    recipes.seed({ id: 'r-2', menuItemId: 'mi-1', version: 2, isCurrent: true });
+
+    // Two people opened v1; one already saved v2. The second must not win.
+    await expect(
+      service.createRecipe(requestFor(), 'mi-1', { basedOnVersion: 1, lines: validLines }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('names both versions in the conflict, since only a human can merge them', async () => {
+    const { service, recipes } = seedDish();
+    recipes.seed({ id: 'r-1', menuItemId: 'mi-1', version: 1, isCurrent: false });
+    recipes.seed({ id: 'r-2', menuItemId: 'mi-1', version: 3, isCurrent: true });
+
+    await expect(
+      service.createRecipe(requestFor(), 'mi-1', { basedOnVersion: 1, lines: validLines }),
+    ).rejects.toThrow(/now at version 3.*based on version 1/s);
+  });
+
+  it('accepts basedOnVersion 0 for a menu item that has no recipe yet', async () => {
+    const { service } = seedDish();
+    const saved = await service.createRecipe(requestFor(), 'mi-1', {
+      basedOnVersion: 0,
+      lines: validLines,
+    });
+    expect(saved.version).toBe(1);
+  });
+
+  it('rejects a first-recipe save when someone else created one in the meantime', async () => {
+    const { service, recipes } = seedDish();
+    recipes.seed({ id: 'r-1', menuItemId: 'mi-1', version: 1 });
+
+    await expect(
+      service.createRecipe(requestFor(), 'mi-1', { basedOnVersion: 0, lines: validLines }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('skips the check entirely when no precondition is supplied', async () => {
+    const { service, recipes } = seedDish();
+    recipes.seed({ id: 'r-1', menuItemId: 'mi-1', version: 5 });
+
+    // Seed scripts and one-off API calls keep working, per the If-Match
+    // precondition pattern the DTO documents.
+    const saved = await service.createRecipe(requestFor(), 'mi-1', { lines: validLines });
+    expect(saved.version).toBe(6);
+  });
+
+  it('turns a lost write race into the same conflict, not a 500', async () => {
+    const { service, recipes } = seedDish();
+    recipes.seed({ id: 'r-1', menuItemId: 'mi-1', version: 1 });
+    // Passes the staleness check, then loses the insert to a concurrent save.
+    jest
+      .spyOn(recipes, 'createVersion')
+      .mockRejectedValueOnce(new RecipeVersionConflictError('mi-1', 2));
+
+    await expect(
+      service.createRecipe(requestFor(), 'mi-1', { basedOnVersion: 1, lines: validLines }),
+    ).rejects.toThrow(ConflictException);
   });
 });
